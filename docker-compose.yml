@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  btick:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: btick:latest
+    container_name: btick_app
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-}
+      - CYCLONEDDS_URI=${CYCLONEDDS_URI:-}
+      - PYTHONUNBUFFERED=1

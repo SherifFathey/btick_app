@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1
+# BTick APP image for amd64: frontend + bridge on top of the published base.
+# Built on every release. Only this file's layers rebuild when the UI or bridge changes.
+#
+# Local build (base must exist first):
+#   docker build -f Dockerfile.amd64.base -t btick-base:local .
+#   docker build -f Dockerfile.amd64 --build-arg BASE_IMAGE=btick-base:local -t btick .
+# Or on top of the published base (default):
+#   docker build -f Dockerfile.amd64 -t btick .
+
+# CI passes the pinned base via --build-arg; this default is for local builds.
+ARG BASE_IMAGE=ghcr.io/sheriffathey/btick-base:base
+
+# ---------- web build (arch-independent output, so build it natively) ----------
+FROM --platform=$BUILDPLATFORM node:20-bookworm-slim AS web-build
+WORKDIR /app
+
+# Prevent Electron from downloading desktop binaries in the web build
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
+# Avoid ETIMEDOUT on networks with broken IPv6
+ENV NODE_OPTIONS=--dns-result-order=ipv4first
+
+# Dependencies layer: only rebuilds when package.json / package-lock.json change
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm config set fetch-retries 5 \
+ && npm config set fetch-retry-mintimeout 20000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm ci --ignore-scripts --prefer-offline
+
+# Source layer: a UI change only reruns from here
+COPY . ./
+RUN npm run build
+
+# ---------- runtime (light layer on the base) ----------
+FROM ${BASE_IMAGE} AS runtime
+
+COPY --from=web-build /app/dist /app/dist
+COPY bridge /app/bridge
+
+# Documentation only (ignored with network_mode: host):
+# Web App HTTP (3000), WebSocket Bridge (8080), Groot2 ZMQ (1667)
+EXPOSE 3000 8080 1667
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/')" || exit 1
+
+# `exec` so SIGTERM from `docker stop` reaches python
+ENTRYPOINT ["/bin/bash", "-c", "source /opt/ros/jazzy/setup.bash && exec python3 /app/bridge/bt_bridge.py --http-port 3000 --ws-port 8080 --dist-dir /app/dist \"$@\"", "--"]

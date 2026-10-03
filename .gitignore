@@ -1,0 +1,12 @@
+node_modules/
+dist/
+release/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+.agents/
+.env
+*.log
+COLCON_IGNORE

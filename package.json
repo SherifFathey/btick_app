@@ -1,0 +1,116 @@
+{
+  "name": "btick",
+  "productName": "BTick",
+  "description": "Standalone BehaviorTree.CPP 4.x & ROS 2 Live Visualizer",
+  "version": "1.0.0",
+  "homepage": "https://github.com/SherifFathey",
+  "author": {
+    "name": "Sherif Fathey",
+    "email": "sheriffathey@outlook.com",
+    "url": "https://github.com/SherifFathey"
+  },
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "web": "npm run build && python3 bridge/bt_bridge.py --http-port 3000 --ws-port 8080",
+    "web:btick": "npm run build && python3 bridge/btick_bridge.py --http-port 3000 --ws-port 8080",
+    "web:groot": "npm run build && python3 bridge/groot2_bridge.py --http-port 3000 --ws-port 8080",
+    "web:nav2": "npm run build && python3 bridge/nav2_bridge.py --http-port 3000 --ws-port 8080",
+    "bridge": "python3 bridge/bt_bridge.py",
+    "bridge:btick": "python3 bridge/btick_bridge.py",
+    "bridge:groot": "python3 bridge/groot2_bridge.py",
+    "bridge:nav2": "python3 bridge/nav2_bridge.py",
+    "desktop": "npm run build && electron --no-sandbox electron/main.cjs",
+    "build:deb": "npm run build && electron-builder --linux deb",
+    "build:appimage": "npm run build && electron-builder --linux AppImage",
+    "build:dist": "npm run build && electron-builder --linux deb AppImage"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@xyflow/react": "^12.4.2",
+    "clsx": "^2.1.1",
+    "dagre": "^0.8.5",
+    "idb": "^8.0.3",
+    "lucide-react": "^0.475.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/dagre": "^0.7.52",
+    "@types/node": "^22.13.4",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.1"
+  },
+  "build": {
+    "appId": "com.sheriffathey.btick",
+    "productName": "BTick",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "bridge",
+        "to": "bridge",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "icon": "public/tree.png",
+      "executableArgs": [
+        "--no-sandbox",
+        "--disable-dev-shm-usage"
+      ],
+      "maintainer": "Sherif Fathey <sheriffathey@outlook.com>",
+      "category": "Development;Utility;",
+      "executableName": "btick",
+      "synopsis": "Standalone BehaviorTree.CPP 4.x & ROS 2 Live Visualizer",
+      "description": "Real-time Behavior Tree visualization and monitoring desktop tool",
+      "desktop": {
+        "Name": "BTick",
+        "StartupWMClass": "BTick"
+      }
+    },
+    "deb": {
+      "packageName": "btick",
+      "depends": [
+        "python3",
+        "python3-zmq",
+        "python3-yaml",
+        "libgtk-3-0 | libgtk-3-0t64",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libuuid1",
+        "libsecret-1-0"
+      ],
+      "recommends": [
+        "ros-humble-ros-base | ros-jazzy-ros-base | ros-iron-ros-base | ros-rolling-ros-base"
+      ]
+    }
+  }
+}

@@ -1,0 +1,124 @@
+name: Build DEB - BTick Linux package (x64 + arm64)
+
+on:
+  release:
+    types:
+      - created
+
+permissions:
+  contents: read
+
+jobs:
+  verify-release:
+    # A saved draft has no tag yet, so skip it.
+    if: ${{ !github.event.release.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate release tag format (vX.Y.Z)
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Release tag '$TAG_NAME' must look like v1.2.3"; exit 1
+          fi
+      - name: Ensure tagged commit is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} (${GITHUB_SHA}) is not on main. Aborting."; exit 1
+          fi
+
+  build:
+    needs: verify-release
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Sync version from release tag
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+      - name: Type-check and build the frontend
+        run: npm run build
+      - name: Syntax-check the Python bridges
+        run: python3 -m py_compile bridge/*.py
+      # electron-builder's bundled fpm is x86_64 only, so arm64 needs the system fpm.
+      - name: Install system fpm (arm64 only)
+        if: matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential
+          sudo gem install --no-document fpm
+      - name: Package .deb
+        env:
+          USE_SYSTEM_FPM: ${{ matrix.arch == 'arm64' && 'true' || 'false' }}
+        run: npx electron-builder --linux deb --${{ matrix.arch }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: release/*.deb
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke:
+    needs: build
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: debs
+      - name: Install the .deb on a clean Ubuntu 24.04
+        run: |
+          docker run --rm -v "$PWD/debs:/debs:ro" ubuntu:24.04 bash -euxc '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y --no-install-recommends /debs/*.deb
+            test -f /opt/BTick/resources/bridge/bt_bridge.py
+            python3 -c "import zmq, yaml"
+            python3 -m py_compile /opt/BTick/resources/bridge/*.py
+          '
+
+  publish:
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deb-*
+          path: release
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd release
+          sha256sum *.deb | tee SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          generate_release_notes: true
+          files: |
+            release/*.deb
+            release/SHA256SUMS.txt

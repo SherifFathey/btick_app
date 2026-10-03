@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+# BTick BASE image for arm64: ROS 2 Jazzy + Python bridge dependencies.
+# Heavy and rarely changing. Built ONCE by the "Base Image" workflow and published
+# as ghcr.io/<owner>/btick-base:<image_tag_version> (default tag: base).
+# The app image (Dockerfile.arm64) builds on top of it, so UI / bridge changes
+# never rebuild this layer.
+#
+# Local build:  docker build -f Dockerfile.arm64.base -t btick-base:local .
+
+FROM ros:jazzy-ros-core
+
+LABEL description="BTick base: ROS 2 Jazzy + Python bridge dependencies"
+
+# If bridge/*.py imports other ROS packages (e.g. nav2_msgs), add them here:
+#   ros-jazzy-nav2-msgs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-zmq \
+    python3-yaml \
+    ros-jazzy-rclpy \
+    ros-jazzy-std-msgs \
+    ros-jazzy-rmw-cyclonedds-cpp \
+    ros-jazzy-rmw-fastrtps-cpp \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# arm64-specific packages/settings go here (leave empty if none)
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1
+ENV ROS_DOMAIN_ID=0

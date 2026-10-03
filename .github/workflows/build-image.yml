@@ -1,0 +1,183 @@
+name: Build Image - BTick app Docker image (amd64 + arm64)
+
+on:
+  release:
+    types:
+      - created
+
+permissions:
+  contents: read
+
+env:
+  # Must already exist on GHCR: run "Build Base Image" first.
+  # Keep it equal to the image_tag_version used there (default: base).
+  BASE_TAG: base
+
+jobs:
+  verify-release:
+    # A saved draft has no tag yet, so skip it.
+    if: ${{ !github.event.release.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate release tag format (vX.Y.Z)
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Release tag '$TAG_NAME' must look like v1.2.3"; exit 1
+          fi
+      - name: Ensure tagged commit is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} (${GITHUB_SHA}) is not on main. Aborting."; exit 1
+          fi
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ensure the base image exists
+        run: |
+          BASE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick-base:${BASE_TAG}"
+          docker buildx imagetools inspect "$BASE" >/dev/null 2>&1 || {
+            echo "::error::Base image $BASE not found. Run 'Build Base Image' first."; exit 1; }
+
+  # Builds Dockerfile.<arch> natively on each architecture and pushes by digest (no tags yet).
+  build:
+    needs: verify-release
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Prepare
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick" >> "$GITHUB_ENV"
+          echo "BASE_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick-base:${BASE_TAG}" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/${{ matrix.arch }}/Dockerfile.${{ matrix.arch }}
+          target: runtime
+          platforms: ${{ matrix.platform }}
+          build-args: BASE_IMAGE=${{ env.BASE_IMAGE }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.event.release.tag_name }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=app-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=app-${{ matrix.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-app-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Runs the still-untagged image on each architecture before it gets any tag.
+  smoke:
+    needs: build
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: digests-app-${{ matrix.arch }}
+          path: digests
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Smoke test the image
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick"
+          REF="$IMAGE@sha256:$(ls digests)"
+          docker pull "$REF"
+          for rmw in rmw_fastrtps_cpp rmw_cyclonedds_cpp; do
+            docker run --rm -e RMW_IMPLEMENTATION=$rmw --entrypoint bash "$REF" -c \
+              'source /opt/ros/jazzy/setup.bash && python3 -c "import rclpy, zmq, yaml; rclpy.init(); rclpy.shutdown()"'
+          done
+          docker run -d --name btick -p 3000:3000 "$REF"
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/ >/dev/null; then echo "UI is up"; exit 0; fi
+            sleep 2
+          done
+          docker logs btick
+          exit 1
+
+  # Merges both architectures into one manifest and applies the tags.
+  publish:
+    needs: smoke
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-app-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
+      - name: Create multi-arch manifest and push tags
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "$IMAGE@sha256:%s " *)َ

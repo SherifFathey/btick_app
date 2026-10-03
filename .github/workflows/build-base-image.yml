@@ -1,0 +1,124 @@
+name: Build Base Image - BTick ROS 2 runtime (amd64 + arm64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag_version:
+        required: false
+        default: 'base'
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  BASE_TAG: ${{ inputs.image_tag_version || 'base' }}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Must run from main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow from main"; exit 1
+          fi
+      - name: Validate tag
+        run: |
+          [[ "$BASE_TAG" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || { echo "::error::Invalid image_tag_version '$BASE_TAG'"; exit 1; }
+
+  build:
+    needs: guard
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Prepare
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick-base" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/${{ matrix.arch }}/Dockerfile.${{ matrix.arch }}.base
+          platforms: ${{ matrix.platform }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=base-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=base-${{ matrix.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-base-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick-base" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-base-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create multi-arch manifest and push the tag
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            -t "$IMAGE:$BASE_TAG" \
+            $(printf "$IMAGE@sha256:%s " *)
+
+  verify:
+    needs: merge
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Prepare
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick-base" >> "$GITHUB_ENV"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check the base on this architecture with both DDS vendors
+        run: |
+          for rmw in rmw_fastrtps_cpp rmw_cyclonedds_cpp; do
+            docker run --rm -e RMW_IMPLEMENTATION=$rmw --entrypoint bash "$IMAGE:$BASE_TAG" -c \
+              'source /opt/ros/jazzy/setup.bash && python3 -c "import rclpy, zmq, yaml; rclpy.init(); rclpy.shutdown(); print(\"ok\")"'
+          done

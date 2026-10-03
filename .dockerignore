@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+dist
+release
+build
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.vscode
+.agents
+COLCON_IGNORE
+.env
+*.log

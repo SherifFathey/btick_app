@@ -177,7 +177,24 @@ jobs:
             type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
       - name: Create multi-arch manifest and push tags
         working-directory: ${{ runner.temp }}/digests
+        env:
+          METADATA_JSON: ${{ steps.meta.outputs.json }}
         run: |
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf "$IMAGE@sha256:%s " *)َ
+          args=()
+
+          while IFS= read -r tag; do
+            args+=("-t" "$tag")
+          done < <(jq -r '.tags[]' <<< "$METADATA_JSON")
+
+          for digest_file in *; do
+            if [[ "$digest_file" =~ ^[0-9a-f]{64}$ ]]; then
+              args+=("$IMAGE@sha256:$digest_file")
+            fi
+          done
+
+          if [[ ${#args[@]} -eq 0 ]]; then
+            echo "::error::No manifest inputs found"
+            exit 1
+          fi
+
+          docker buildx imagetools create "${args[@]}"

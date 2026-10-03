@@ -95,6 +95,7 @@
     },
     "deb": {
       "packageName": "btick",
+      "afterInstall": "build/scripts/after-install.sh",
       "depends": [
         "python3",
         "python3-zmq",

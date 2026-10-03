@@ -81,7 +81,7 @@
       "icon": "public/tree.png",
       "executableArgs": [
         "--no-sandbox",
-        "--disable-dev-shm-usage"
+        "--disable-gpu"
       ],
       "maintainer": "Sherif Fathey <sheriffathey@outlook.com>",
       "category": "Development;Utility;",

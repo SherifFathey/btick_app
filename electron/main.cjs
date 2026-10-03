@@ -33,9 +33,9 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('name', 'BTick');
 }
 
-// Disable shared memory usage in restricted /dev/shm environments and configure Linux sandbox
-//app.commandLine.appendSwitch('disable-dev-shm-usage');
+// Configure Linux stability & sandbox switches
 app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 
 let mainWindow = null;

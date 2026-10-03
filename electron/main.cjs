@@ -34,7 +34,7 @@ if (process.platform === 'linux') {
 }
 
 // Disable shared memory usage in restricted /dev/shm environments and configure Linux sandbox
-app.commandLine.appendSwitch('disable-dev-shm-usage');
+//app.commandLine.appendSwitch('disable-dev-shm-usage');
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 

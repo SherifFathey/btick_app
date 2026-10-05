@@ -32,6 +32,34 @@ export class BTickHandler implements IProtocolHandler {
       return startNewExecutionCycle(state, targetId, cycleId, data.timestamp);
     }
 
+    // 0c. Explicit Tree Destroyed / Removed Lifecycle Event
+    if (data.type === 'tree_destroyed' || data.type === 'tree_removed' || data.type === 'tree_closed') {
+      const treeId = data.tree_id;
+      if (!treeId || !state.treesMap.has(treeId)) {
+        return state;
+      }
+      const nextTreesMap = new Map(state.treesMap);
+      nextTreesMap.delete(treeId);
+
+      let nextSelectedId = state.selectedTreeId;
+      if (nextSelectedId === treeId) {
+        nextSelectedId = nextTreesMap.size > 0 ? nextTreesMap.keys().next().value! : null;
+      }
+
+      const isThisTreePaused = state.pausedNodeTreeId === treeId;
+
+      return {
+        ...state,
+        treesMap: nextTreesMap,
+        liveTreesMap: nextTreesMap,
+        selectedTreeId: nextSelectedId,
+        isPaused: isThisTreePaused ? false : state.isPaused,
+        pausedNodeTreeId: isThisTreePaused ? null : state.pausedNodeTreeId,
+        pausedNodeUid: isThisTreePaused ? null : state.pausedNodeUid,
+        pausedNodeName: isThisTreePaused ? undefined : state.pausedNodeName,
+      };
+    }
+
     // 1. Behavior Tree Structure Discovery Message
     if (data.type === 'tree_created' || data.type === 'tree') {
       const rawTree = data;
@@ -50,7 +78,6 @@ export class BTickHandler implements IProtocolHandler {
       const workingState = state;
 
       const nextTreesMap = new Map(workingState.treesMap);
-
       const matchedExistingKey = findMatchingLogicalTreeKey(
         nextTreesMap,
         treeId,
@@ -63,7 +90,6 @@ export class BTickHandler implements IProtocolHandler {
         rawTree.pid,
         rawTree.hostname
       );
-
       const existingTree = matchedExistingKey ? nextTreesMap.get(matchedExistingKey) : nextTreesMap.get(treeId);
       const isRestart = Boolean(
         rawTree.is_restart ||
@@ -87,8 +113,6 @@ export class BTickHandler implements IProtocolHandler {
             const existing = existingTree.nodes.find((node) =>
               (incoming.uid > 0 && node.uid === incoming.uid) || node.id === incoming.id);
             if (!existing) return incoming;
-            if (incoming.status !== existing.status) {
-            }
             return {
               ...incoming,
               status: existing.status,

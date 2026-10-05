@@ -1,5 +1,5 @@
 import { IProtocolHandler, ProtocolSessionState, MAX_RAM_EVENT_HISTORY } from '../types';
-import { BTNodeModel, NodeStatus, TransitionEvent, TreeStatus } from '../../types/bt';
+import { BTNodeModel, NodeStatus, TreeStatus, TransitionEvent } from '../../types/bt';
 import { attachRootCard, mergeNodesWithExisting } from '../../utils/xmlParser';
 import { initializeCleanSessionState, updateProtocolHeartbeat, findMatchingLogicalTreeKey } from '../session/sessionManager';
 
@@ -43,6 +43,34 @@ export class Nav2Handler implements IProtocolHandler {
       return updateProtocolHeartbeat(state, connStatus, data.execution_instance_id);
     }
 
+    // 0b. Explicit Tree Destroyed / Removed Lifecycle Event
+    if (data.type === 'tree_destroyed' || data.type === 'tree_removed' || data.type === 'tree_closed') {
+      const treeId = data.tree_id;
+      if (!treeId || !state.treesMap.has(treeId)) {
+        return state;
+      }
+      const nextTreesMap = new Map(state.treesMap);
+      nextTreesMap.delete(treeId);
+
+      let nextSelectedId = state.selectedTreeId;
+      if (nextSelectedId === treeId) {
+        nextSelectedId = nextTreesMap.size > 0 ? nextTreesMap.keys().next().value! : null;
+      }
+
+      const isThisTreePaused = state.pausedNodeTreeId === treeId;
+
+      return {
+        ...state,
+        treesMap: nextTreesMap,
+        liveTreesMap: nextTreesMap,
+        selectedTreeId: nextSelectedId,
+        isPaused: isThisTreePaused ? false : state.isPaused,
+        pausedNodeTreeId: isThisTreePaused ? null : state.pausedNodeTreeId,
+        pausedNodeUid: isThisTreePaused ? null : state.pausedNodeUid,
+        pausedNodeName: isThisTreePaused ? undefined : state.pausedNodeName,
+      };
+    }
+
     // 1. Behavior Tree Structure Discovery / Loaded XML Registration
     if (data.type === 'tree_created' || data.type === 'tree') {
       const rawTree = data;
@@ -77,7 +105,6 @@ export class Nav2Handler implements IProtocolHandler {
       }
 
       const nextTreesMap = new Map(workingState.treesMap);
-
       const matchedExistingKey = findMatchingLogicalTreeKey(
         nextTreesMap,
         treeId,
@@ -85,9 +112,11 @@ export class Nav2Handler implements IProtocolHandler {
         rawTree.xml_path,
         nodesList,
         'nav2',
-        rawTree.origin
+        rawTree.origin,
+        rawTree.node_name,
+        rawTree.pid,
+        rawTree.hostname
       );
-
       const existingTree = matchedExistingKey ? nextTreesMap.get(matchedExistingKey) : nextTreesMap.get(treeId);
       const isRestart = isNewExecutionInstance || Boolean(
         rawTree.is_restart ||
@@ -283,15 +312,16 @@ export class Nav2Handler implements IProtocolHandler {
         }
         return n;
       });
+      const finalNodes = updatedNodes;
       const nextTreeStatus: TreeStatus = matchedNode?.id === targetTree.root_node_id
-        ? (effectiveStatus === 'RUNNING' || effectiveStatus === 'SUCCESS' || effectiveStatus === 'FAILURE' || effectiveStatus === 'IDLE' ? effectiveStatus : targetTree.status)
+        ? (effectiveStatus === 'SKIPPED' ? 'IDLE' : (effectiveStatus as TreeStatus))
         : targetTree.status;
 
       nextMap.set(targetTreeId, {
         ...targetTree,
         blackboard: event.blackboard ? { ...(targetTree.blackboard || {}), ...event.blackboard } : targetTree.blackboard,
         status: nextTreeStatus,
-        nodes: updatedNodes,
+        nodes: finalNodes,
       });
       const nextObservations = nextObservation && observationKey
         ? { ...(workingState.nav2Observations || {}), [observationKey]: nextObservation }

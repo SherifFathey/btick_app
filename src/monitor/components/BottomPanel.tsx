@@ -393,7 +393,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   return (
     <div 
       style={{ height: isOpen ? `${panelHeight}px` : '42px' }}
-      className="relative bg-surface-primary border-t border-border-subtle flex flex-col z-30 transition-[height] duration-75 select-text font-sans"
+      className="relative bg-surface-primary border-t border-border-subtle flex flex-col z-30 transition-[height] duration-75 select-text font-sans shrink-0"
     >
       {/* Top Edge Resizer Handle */}
       {isOpen && (

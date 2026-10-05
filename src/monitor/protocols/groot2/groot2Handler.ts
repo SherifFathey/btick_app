@@ -33,6 +33,34 @@ export class Groot2Handler implements IProtocolHandler {
       return startNewExecutionCycle(state, targetId, cycleId, data.timestamp);
     }
 
+    // 0c. Explicit Tree Destroyed / Removed Lifecycle Event
+    if (data.type === 'tree_destroyed' || data.type === 'tree_removed' || data.type === 'tree_closed') {
+      const treeId = data.tree_id;
+      if (!treeId || !state.treesMap.has(treeId)) {
+        return state;
+      }
+      const nextTreesMap = new Map(state.treesMap);
+      nextTreesMap.delete(treeId);
+
+      let nextSelectedId = state.selectedTreeId;
+      if (nextSelectedId === treeId) {
+        nextSelectedId = nextTreesMap.size > 0 ? nextTreesMap.keys().next().value! : null;
+      }
+
+      const isThisTreePaused = state.pausedNodeTreeId === treeId;
+
+      return {
+        ...state,
+        treesMap: nextTreesMap,
+        liveTreesMap: nextTreesMap,
+        selectedTreeId: nextSelectedId,
+        isPaused: isThisTreePaused ? false : state.isPaused,
+        pausedNodeTreeId: isThisTreePaused ? null : state.pausedNodeTreeId,
+        pausedNodeUid: isThisTreePaused ? null : state.pausedNodeUid,
+        pausedNodeName: isThisTreePaused ? undefined : state.pausedNodeName,
+      };
+    }
+
     // 1. Groot2 Behavior Tree Structure Discovery Message
     if (data.type === 'tree_created' || data.type === 'tree') {
       const rawTree = data;
@@ -60,7 +88,6 @@ export class Groot2Handler implements IProtocolHandler {
       }
 
       const nextTreesMap = new Map(workingState.treesMap);
-
       const matchedExistingKey = findMatchingLogicalTreeKey(
         nextTreesMap,
         treeId,
@@ -68,15 +95,17 @@ export class Groot2Handler implements IProtocolHandler {
         rawTree.xml_path,
         nodesList,
         'groot2',
-        rawTree.origin
+        rawTree.origin,
+        rawTree.node_name,
+        rawTree.pid,
+        rawTree.hostname
       );
-
       const existingTree = matchedExistingKey ? nextTreesMap.get(matchedExistingKey) : nextTreesMap.get(treeId);
       const isRestart = isNewExecutionInstance || Boolean(
         rawTree.is_restart ||
         rawTree.reconnected ||
         rawTree.protocol === 'groot2' ||
-        (existingTree && (existingTree.status === 'DESTROYED' || (matchedExistingKey && existingTree.tree_id !== treeId)))
+        (existingTree && (existingTree.status === 'DESTROYED' || existingTree.status === 'STOPPED' || (matchedExistingKey && matchedExistingKey !== treeId)))
       );
 
       let nextBreakpoints = workingState.breakpoints;
@@ -947,9 +976,9 @@ export class Groot2Handler implements IProtocolHandler {
     state: ProtocolSessionState,
     sendCommand: (cmd: any) => void
   ): ProtocolSessionState {
-    const activeTreeId = targetTreeId || state.pausedNodeTreeId || state.selectedTreeId || (state.treesMap.size === 1 ? state.treesMap.keys().next().value : undefined);
+    const activeTreeId = targetTreeId || state.pausedNodeTreeId || state.selectedTreeId || (state.treesMap.size === 1 ? (state.treesMap.keys().next().value as string | undefined) : undefined) || 'Groot2Tree';
     const currentPausedUid = state.pausedNodeUid;
-    if (!currentPausedUid || !activeTreeId) return state;
+    if (!currentPausedUid) return state;
 
     const canonicalKey = `${activeTreeId}::${currentPausedUid}`;
     const targetTree = state.treesMap.get(activeTreeId);

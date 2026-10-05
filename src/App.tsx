@@ -5,7 +5,6 @@ import { ros2Service } from './monitor/services/ros2Service';
 import { 
   BTTreeModel, 
   BTNodeModel, 
-  BTPortDetail,
   NodeStatus, 
   TreeStatus, 
   TransitionEvent, 
@@ -16,7 +15,8 @@ import {
   ViewMode, 
   TreeOrientation,
   EdgePathMode,
-  StatusFilterOptions 
+  StatusFilterOptions,
+  BTPortDetail
 } from './monitor/types/bt';
 import { 
   ProtocolSource, 
@@ -715,7 +715,7 @@ export type TreeRecordingState = TreeSessionPersistenceState;
  * Used for both BT transitions and recorded Blackboard edits.
  */
 export const recordSessionEvent = (
-  sessionState: TreeSessionPersistenceState | undefined,
+  sessionState: TreeSessionPersistenceState,
   event: TransitionEvent,
 ): void => {
   if (!sessionState || sessionState.stopPromise) return;
@@ -739,10 +739,9 @@ export const recordSessionEvent = (
  * blackboard every 500ms, so unchanged broadcasts must not be recorded.
  */
 export const buildRecordableBlackboardDelta = (
-  sessionState: TreeSessionPersistenceState | undefined,
+  sessionState: TreeSessionPersistenceState,
   incoming: Record<string, any>,
 ): Record<string, any> | null => {
-  if (!sessionState) return null;
   const baseline = sessionState.recordedBlackboard || {};
   const delta: Record<string, any> = {};
   let hasChanges = false;
@@ -1128,6 +1127,18 @@ export const App: React.FC = () => {
         const liveTreeEvents = routedProto.treeEvents || current.treeEvents || new Map();
         const compositeTreesMap = buildCompositeTreesMap(liveTreesMap, current.treeReplays);
 
+        if (data?.type === 'tree_destroyed' || data?.type === 'tree_removed' || data?.type === 'tree_closed') {
+          const treeId = data.tree_id;
+          if (treeId) {
+            const storeKey = getTreeStoreKey(protocol, treeId);
+            const sessionState = treeSessionsRef.current.get(storeKey);
+            if (sessionState) {
+              void sessionState.store.dispose();
+              treeSessionsRef.current.delete(storeKey);
+            }
+          }
+        }
+
         if (ENABLE_LIVE_SESSION_RECORDING && (data?.type === 'tree_created' || data?.type === 'tree')) {
           const treeId = data.tree_id || 'MainTree';
           const targetTree = routedProto.treesMap?.get(treeId);
@@ -1145,19 +1156,21 @@ export const App: React.FC = () => {
             if (bbTreeId) {
               const targetTree = liveTreesMap?.get(bbTreeId) || routedProto.treesMap?.get(bbTreeId);
               const sessionState = getOrCreateTreeSession(protocol, bbTreeId, targetTree);
-              const delta = buildRecordableBlackboardDelta(sessionState, bbPayload);
-              if (delta) {
-                recordSessionEvent(
-                  sessionState,
-                  buildBlackboardEvent(
-                    protocol,
-                    bbTreeId,
-                    delta,
-                    (data as any).timestamp,
-                    sessionState?.eventCount ?? 0,
-                    targetTree?.tree_name || bbTreeId,
-                  ),
-                );
+              if (sessionState) {
+                const delta = buildRecordableBlackboardDelta(sessionState, bbPayload);
+                if (delta) {
+                  recordSessionEvent(
+                    sessionState,
+                    buildBlackboardEvent(
+                      protocol,
+                      bbTreeId,
+                      delta,
+                      (data as any).timestamp,
+                      sessionState?.eventCount ?? 0,
+                      targetTree?.tree_name || bbTreeId,
+                    ),
+                  );
+                }
               }
             }
           }
@@ -1174,16 +1187,18 @@ export const App: React.FC = () => {
             if (eventTreeId) {
               const targetTree = liveTreesMap?.get(eventTreeId) || routedProto.treesMap?.get(eventTreeId);
               const sessionState = getOrCreateTreeSession(protocol, eventTreeId, targetTree);
-              // Keep the blackboard baseline in sync with transition-carried
-              // blackboard updates so subsequent full-scope broadcasts don't
-              // re-record values already captured by the transition event.
-              if (sessionState && transition.blackboard && typeof transition.blackboard === 'object') {
-                sessionState.recordedBlackboard = {
-                  ...(sessionState.recordedBlackboard || {}),
-                  ...transition.blackboard,
-                };
+              if (sessionState) {
+                // Keep the blackboard baseline in sync with transition-carried
+                // blackboard updates so subsequent full-scope broadcasts don't
+                // re-record values already captured by the transition event.
+                if (transition.blackboard && typeof transition.blackboard === 'object') {
+                  sessionState.recordedBlackboard = {
+                    ...(sessionState.recordedBlackboard || {}),
+                    ...transition.blackboard,
+                  };
+                }
+                recordSessionEvent(sessionState, transition);
               }
-              recordSessionEvent(sessionState, transition);
             }
           }
         }
@@ -1200,30 +1215,33 @@ export const App: React.FC = () => {
           const targetTree = liveTreesMap?.get(data.tree_id) || routedProto.treesMap?.get(data.tree_id);
           const targetNode = targetTree?.nodes.find((node) => node.uid === data.uid);
           if (targetTree && targetNode) {
-            recordSessionEvent(
-              getOrCreateTreeSession(protocol, data.tree_id, targetTree),
-              {
-                id: `port_${data.request_id || Date.now()}_${data.uid}_${data.port_name}`,
-                type: 'transition',
-                source: protocol,
-                protocol,
-                tree_id: data.tree_id,
-                tree_name: targetTree.tree_name || data.tree_id,
-                node_id: targetNode.id,
-                node_name: targetNode.name,
-                uid: targetNode.uid,
-                prev_status: targetNode.status,
-                status: targetNode.status,
-                duration: 0,
-                tick_count: targetNode.tick_count || 0,
-                timestamp: Number(data.timestamp) || Date.now() / 1000,
-                port_updates: [{
-                  port_name: data.port_name,
-                  value: String(data.value),
-                  mode: data.mode === 'Blackboard' ? 'Blackboard' : 'Literal',
-                }],
-              },
-            );
+            const sessionState = getOrCreateTreeSession(protocol, data.tree_id, targetTree);
+            if (sessionState) {
+              recordSessionEvent(
+                sessionState,
+                {
+                  id: `port_${data.request_id || Date.now()}_${data.uid}_${data.port_name}`,
+                  type: 'transition',
+                  source: protocol,
+                  protocol,
+                  tree_id: data.tree_id,
+                  tree_name: targetTree.tree_name || data.tree_id,
+                  node_id: targetNode.id,
+                  node_name: targetNode.name,
+                  uid: targetNode.uid,
+                  prev_status: targetNode.status,
+                  status: targetNode.status,
+                  duration: 0,
+                  tick_count: targetNode.tick_count || 0,
+                  timestamp: Number(data.timestamp) || Date.now() / 1000,
+                  port_updates: [{
+                    port_name: data.port_name,
+                    value: String(data.value),
+                    mode: data.mode === 'Blackboard' ? 'Blackboard' : 'Literal',
+                  }],
+                },
+              );
+            }
           }
         }
 

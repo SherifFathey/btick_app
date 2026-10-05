@@ -723,15 +723,13 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     return `${treeSig}:${activeOrientation}:${activeProtocol}:${layoutRevision}:${measuredHeightsSig}`;
   }, [tree, activeOrientation, activeProtocol, layoutRevision, measuredNodeHeights]);
 
-  // Request fit whenever layout token changes (tree, orientation, protocol, reset layout, or measured heights)
+  // Request initial fit whenever treeSessionKey changes (initial load, tree change, orientation change, protocol change, or layout reset)
   useEffect(() => {
-    if (layoutToken !== lastFittedTokenRef.current) {
+    if (treeSessionKey !== lastExplicitFittedSessionKeyRef.current) {
       fitRequestedRef.current = true;
-      if (layoutToken !== lastExplicitFittedSessionKeyRef.current) {
-        explicitFitRequestedRef.current = true;
-      }
+      explicitFitRequestedRef.current = true;
     }
-  }, [layoutToken]);
+  }, [treeSessionKey]);
 
   // Update nodes and edges when tree, orientation, or protocol changes, auto-resetting layout on orientation switch
   useEffect(() => {
@@ -979,9 +977,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   // Execute fitView deterministically AFTER the new layout is committed, measured, and rendered
   useEffect(() => {
     const isExplicit = explicitFitRequestedRef.current;
-    const isAuto = autoCenterRef.current && fitRequestedRef.current;
 
-    if ((!isExplicit && !isAuto) || nodes.length === 0) {
+    if (!isExplicit || nodes.length === 0) {
       return;
     }
 
@@ -992,8 +989,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 
     const checkAndFit = () => {
       const explicitPending = explicitFitRequestedRef.current;
-      const autoPending = autoCenterRef.current && fitRequestedRef.current;
-      if (!explicitPending && !autoPending) return;
+      if (!explicitPending) return;
 
       // 1. Verify container has valid non-zero dimensions
       const container = reactFlowWrapperRef.current;
@@ -1047,38 +1043,25 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 
       // Final geometry & complete node bounds confirmed in React Flow store
       fitRequestedRef.current = false;
-      lastFittedTokenRef.current = layoutToken;
+      explicitFitRequestedRef.current = false;
+      lastExplicitFittedSessionKeyRef.current = treeSessionKey;
+      lastFittedTokenRef.current = treeSessionKey;
 
-      if (explicitPending) {
-        // Initial tree connection, tree discovery, layout switch, or orientation change:
-        // FIRST PRIORITY: Always perform full-tree Fit View to center the entire tree on the screen
-        explicitFitRequestedRef.current = false;
-        lastExplicitFittedSessionKeyRef.current = layoutToken;
-        console.log(
-          '[BTGraph][Viewport] checkAndFit -> calling performExplicitFitView (first priority) for',
-          layoutToken,
-        );
-        const fitPromise = performExplicitFitView({ duration: 0 });
-        if (fitPromise && typeof fitPromise.then === "function") {
-          fitPromise.then((res: boolean) => {
-            if (res === false) {
-              explicitFitRequestedRef.current = true;
-              fitRequestedRef.current = true;
-              rafId1Ref.current = requestAnimationFrame(checkAndFit);
-            } else {
-              setIsTreeReady(true);
-            }
-          });
-        } else {
-          setIsTreeReady(true);
-        }
-      } else if (autoCenterRef.current) {
-        // Subsequent execution ticks when Auto-Center is ON: center on active node
-        console.log(
-          '[BTGraph][Viewport] checkAndFit -> Auto-Center is ON (centering active node)',
-        );
-        centerOnActiveNode(true);
-        setIsTreeReady(true);
+      console.log(
+        '[BTGraph][Viewport] checkAndFit -> calling performExplicitFitView (first priority) for',
+        treeSessionKey,
+      );
+      const fitPromise = performExplicitFitView({ duration: 0 });
+      if (fitPromise && typeof fitPromise.then === "function") {
+        fitPromise.then((res: boolean) => {
+          if (res === false) {
+            explicitFitRequestedRef.current = true;
+            fitRequestedRef.current = true;
+            rafId1Ref.current = requestAnimationFrame(checkAndFit);
+          } else {
+            setIsTreeReady(true);
+          }
+        });
       } else {
         setIsTreeReady(true);
       }
@@ -1093,7 +1076,6 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       }
     };
   }, [
-    layoutToken,
     treeSessionKey,
     nodesInitialized,
     nodes,
@@ -1101,8 +1083,6 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     storeApi,
     getNodes,
     performExplicitFitView,
-    centerOnActiveNode,
-    isAutoCenter,
   ]);
 
   // When tree updates or active node changes while isAutoCenter is on, smoothly center
@@ -1275,8 +1255,9 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     <div
       ref={reactFlowWrapperRef}
       tabIndex={-1}
-      className={`relative w-full h-full bg-canvas outline-none [container-type:inline-size] transition-opacity duration-150 ${isTreeReady ? "opacity-100" : "opacity-0"
-        }`}
+      className={`relative w-full h-full bg-canvas outline-none [container-type:inline-size] transition-opacity duration-150 ${
+        isTreeReady ? "opacity-100" : "opacity-0"
+      }`}
     >
       {/* Floating Paused at Breakpoint Top Banner & Action Controls */}
       {isPausedAtBreakpoint && (

@@ -105,22 +105,17 @@ class BTickROS2Bridge:
                     conn_status = 'DISCONNECTED'
                     if self.is_currently_alive:
                         self.is_currently_alive = False
-                        # Reset all running nodes in local cache to IDLE upon disconnect
-                        for t in self.trees.values():
-                            t['status'] = 'IDLE'
-                            for n in t.get('nodes', []):
-                                if n.get('status') in ('RUNNING', 'PAUSED_AT_BREAKPOINT'):
-                                    n['status'] = 'IDLE'
-                        if self.on_event_callback:
-                            for t in self.trees.values():
+                        # Clean up active trees upon disconnect
+                        for t_id in list(self.trees.keys()):
+                            if self.on_event_callback:
                                 self.on_event_callback({
-                                    'type': 'tree_status',
+                                    'type': 'tree_destroyed',
                                     'source': 'btick',
                                     'protocol': 'btick',
-                                    'tree_id': t.get('tree_id'),
-                                    'status': 'IDLE',
-                                    'nodes': t.get('nodes', [])
+                                    'tree_id': t_id,
+                                    'status': 'DESTROYED'
                                 })
+                        self.trees.clear()
 
                 if self.on_event_callback:
                     self.on_event_callback({

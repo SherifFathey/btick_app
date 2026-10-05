@@ -1,15 +1,15 @@
 import { ProtocolSessionState, ProtocolConnectionStatus, SessionInfo } from '../types';
-import { BTNodeModel, BTTreeModel, BTPortDetail, TransitionEvent, TreeStatus, NodeStatus, RecordingSession, RecordingSnapshot, RecordedNodeExecution } from '../../types/bt';
+import { BTNodeModel, BTTreeModel, TransitionEvent, TreeStatus, NodeStatus, RecordingSession, RecordingSnapshot, RecordedNodeExecution, BTPortDetail } from '../../types/bt';
 import { isMatchNode } from '../../utils/xmlParser';
 
 /**
- * Normalizes a tree identifier or name by stripping ephemeral instance/PID/timestamp suffixes
- * such as _12345, _inst_12345, _cycle_12345, #1, etc.
+ * Normalizes a tree identifier or name by stripping ephemeral instance/PID/timestamp/hex suffixes
+ * such as _12345, _inst_12345, _pid1, _newPID, _5eb22776..., #1, etc.
  */
 export function normalizeTreeBaseName(nameOrId: string): string {
   if (!nameOrId) return '';
   return nameOrId
-    .replace(/(?:_inst|_cycle|_pid|_process)?_\d+$/i, '')
+    .replace(/_(?:inst|cycle|pid|process|newpid|[0-9a-f]{8,}|\d+)[0-9a-f_]*$/i, '')
     .replace(/\s*#\d+$/i, '')
     .trim();
 }
@@ -28,13 +28,13 @@ export function normalizeTreeBaseName(nameOrId: string): string {
 export function isSameLogicalTree(
   existing: BTTreeModel,
   incomingTreeId: string,
-  incomingTreeName?: string,
+  _incomingTreeName?: string,
   incomingXmlPath?: string,
   incomingNodes?: BTNodeModel[],
   protocol?: string,
   incomingOrigin?: string,
   incomingNodeName?: string,
-  incomingPid?: number,
+  _incomingPid?: number,
   incomingHostname?: string
 ): boolean {
   if (protocol && existing.protocol && existing.protocol !== protocol) {
@@ -46,11 +46,8 @@ export function isSameLogicalTree(
     return true;
   }
 
-  // If node_name, pid, or hostname are specified and different, they belong to different processes
+  // If node_name or hostname are specified and different, they belong to different processes
   if (existing.node_name && incomingNodeName && existing.node_name !== incomingNodeName) {
-    return false;
-  }
-  if (existing.pid !== undefined && incomingPid !== undefined && existing.pid !== incomingPid) {
     return false;
   }
   if (existing.hostname && incomingHostname && existing.hostname !== incomingHostname) {
@@ -67,18 +64,12 @@ export function isSameLogicalTree(
     return false;
   }
 
-  const existingTreeName = existing.tree_name || existing.tree_id;
-  const incomingName = incomingTreeName || incomingTreeId;
-
+  // Match based on normalized tree_id (identity is tree_id, not display name)
   const normExistingId = normalizeTreeBaseName(existing.tree_id);
   const normIncomingId = normalizeTreeBaseName(incomingTreeId);
   const idBaseMatch = Boolean(normExistingId && normIncomingId && normExistingId === normIncomingId);
 
-  const normExistingName = normalizeTreeBaseName(existingTreeName);
-  const normIncomingName = normalizeTreeBaseName(incomingName);
-  const nameBaseMatch = Boolean(normExistingName && normIncomingName && normExistingName === normIncomingName);
-
-  if (!idBaseMatch && !nameBaseMatch) {
+  if (!idBaseMatch) {
     return false;
   }
 
@@ -107,7 +98,7 @@ export function isSameLogicalTree(
     }
 
     // If incoming has non-root nodes and zero overlap with existing non-root nodes,
-    // they are completely different trees that happen to share a tree_name or base name.
+    // they are completely different trees that happen to share a base id.
     if (incomingNonRootCount > 0 && existingNodeKeys.size > 0 && matchCount === 0) {
       return false;
     }
@@ -805,6 +796,7 @@ export function updateProtocolHeartbeat(
     reconnectAttempts: connectionStatus === 'RECONNECTING' ? prevSession.reconnectAttempts + 1 : 0,
   };
 
+  // If disconnected, clean up old live tree instances from treesMap (preserving manually uploaded offline XML files)
   // If disconnected or reconnecting, reset any RUNNING nodes in treesMap to IDLE
   let nextTreesMap = state.treesMap;
   if (connectionStatus === 'DISCONNECTED' || connectionStatus === 'RECONNECTING') {

@@ -39,6 +39,7 @@ class UnifiedBTBridgeServer:
         self.dist_dir = dist_dir
         self.groot_host = groot_host
         self.groot_port = groot_port
+        self.zmq_port = groot_port
 
         self.enable_ros = enable_ros
         self.enable_groot = enable_groot
@@ -286,6 +287,9 @@ class UnifiedBTBridgeServer:
                         **kwargs
                     )
                     self.http_server = ThreadingHTTPServer(("0.0.0.0", self.http_port), handler)
+                    self.http_server.ws_port = self.ws_port
+                    self.http_server.http_port = self.http_port
+                    self.http_server.zmq_port = self.zmq_port
                     print(f"[Unified Bridge] 🌐 Web App active on http://0.0.0.0:{self.http_port}")
                     self.http_server.serve_forever()
 
@@ -308,6 +312,8 @@ class UnifiedBTBridgeServer:
         return {
             'ws_port': self.ws_port,
             'http_port': self.http_port,
+            'zmq_port': self.groot_port,
+            'groot_port': self.groot_port,
             'has_ros2': HAVE_RCLPY and bool(self.btick_bridge),
             'has_groot2': HAVE_ZMQ and bool(self.groot2_bridge),
             'groot2_connected': bool(self.groot2_bridge and self.groot2_bridge.running),
@@ -563,12 +569,17 @@ class UnifiedBTBridgeServer:
 
 
 def main():
+    default_ws_port = int(os.environ.get("WS_PORT", 8080))
+    default_http_port = int(os.environ.get("HTTP_PORT", 3000))
+    default_zmq_port = int(os.environ.get("ZMQ_PORT", os.environ.get("GROOT_PORT", 1667)))
+    default_zmq_host = os.environ.get("ZMQ_HOST", os.environ.get("GROOT_HOST", "127.0.0.1"))
+
     parser = argparse.ArgumentParser(description="BTick Unified Multi-Protocol Bridge Server")
-    parser.add_argument("--ws-port", type=int, default=8080, help="WebSocket port (default: 8080)")
-    parser.add_argument("--http-port", type=int, default=3000, help="HTTP SPA Web port (default: 3000)")
+    parser.add_argument("--ws-port", type=int, default=default_ws_port, help=f"WebSocket port (default: {default_ws_port})")
+    parser.add_argument("--http-port", type=int, default=default_http_port, help=f"HTTP SPA Web port (default: {default_http_port})")
     parser.add_argument("--dist-dir", type=str, default="", help="Path to built web app dist folder")
-    parser.add_argument("--groot-host", type=str, default="127.0.0.1", help="Groot2 host (default: 127.0.0.1)")
-    parser.add_argument("--groot-port", type=int, default=1667, help="Groot2 port (default: 1667)")
+    parser.add_argument("--zmq-host", "--groot-host", dest="zmq_host", type=str, default=default_zmq_host, help=f"ZMQ / Groot2 host (default: {default_zmq_host})")
+    parser.add_argument("--zmq-port", "--groot-port", dest="zmq_port", type=int, default=default_zmq_port, help=f"ZMQ / Groot2 port (default: {default_zmq_port})")
     parser.add_argument("--protocol", choices=["all", "btick", "groot", "nav2"], default="all", help="Target protocol mode (default: all)")
     parser.add_argument("--no-ros", action="store_true", help="Disable ROS 2 DDS listeners")
     parser.add_argument("--no-groot", action="store_true", help="Disable Groot2 ZMQ client")
@@ -606,10 +617,10 @@ def main():
     print("=" * 66)
     print(f" • WebSocket Broadcast : ws://0.0.0.0:{args.ws_port}")
     if args.http_port > 0 and dist_dir:
-        print(f" • Web App Browser URL : http://localhost:{args.http_port}")
+        print(f" • Web App Browser URL : http://0.0.0.0:{args.http_port}")
         print(f" • Static Assets Path  : {dist_dir}")
     if enable_groot:
-        print(f" • Groot2 Target       : tcp://{args.groot_host}:{args.groot_port}")
+        print(f" • Groot2/ZMQ Target   : tcp://{args.zmq_host}:{args.zmq_port}")
     if enable_ros:
         print(f" • ROS 2 BTick         : /btick/tree_discovery, /btick/tree_transitions")
     if enable_nav2:
@@ -620,8 +631,8 @@ def main():
         ws_port=args.ws_port,
         http_port=args.http_port,
         dist_dir=dist_dir,
-        groot_host=args.groot_host,
-        groot_port=args.groot_port,
+        groot_host=args.zmq_host,
+        groot_port=args.zmq_port,
         enable_ros=enable_ros,
         enable_groot=enable_groot,
         enable_nav2=enable_nav2

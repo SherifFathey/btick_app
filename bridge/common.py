@@ -462,14 +462,44 @@ class SPAHTTPHandler(SimpleHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
+    def _send_cors_headers(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', '*')
+
+    def do_OPTIONS(self):
+        try:
+            self.send_response(204)
+            self._send_cors_headers()
+            self.end_headers()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
+
     def do_GET(self):
         try:
             parsed_path = urlparse(self.path).path
             file_path = os.path.join(self.dist_dir, parsed_path.lstrip('/'))
 
+            if parsed_path in ('/config.json', '/api/config'):
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self._send_cors_headers()
+                self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
+                self.send_header('Pragma', 'no-cache')
+                self.end_headers()
+                info = self.status_provider() if self.status_provider else {}
+                config_data = {
+                    'wsPort': info.get('ws_port', 8080),
+                    'httpPort': info.get('http_port', 3000),
+                    'zmqPort': info.get('zmq_port', info.get('groot_port', 1667)),
+                }
+                self.wfile.write(json.dumps(config_data).encode('utf-8'))
+                return
+
             if parsed_path.startswith('/api/status'):
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
+                self._send_cors_headers()
                 self.end_headers()
                 info = self.status_provider() if self.status_provider else {'status': 'ok'}
                 self.wfile.write(json.dumps(info).encode('utf-8'))

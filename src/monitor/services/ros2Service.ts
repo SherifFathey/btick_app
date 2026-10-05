@@ -34,22 +34,54 @@ class ROS2Service {
 
       // Notify main process that UI listener is ready and ask for any cached tree
       setTimeout(() => {
-        (window as any).electronAPI.notifyReady?.();
-        (window as any).electronAPI.requestTree?.();
+        if (typeof window !== 'undefined' && (window as any).electronAPI) {
+          (window as any).electronAPI.notifyReady?.();
+          (window as any).electronAPI.requestTree?.();
+        }
       }, 50);
     }
 
-    // 2. Connect to Localhost WebSocket Bridge for standalone browser & unified Electron bridge
-    this.connectWS();
+    // 2. Fetch runtime config then connect to WebSocket Bridge once
+    this.initRuntimeConfig().then(() => {
+      this.connectWS();
+    });
+  }
+
+  private runtimeConfig: { wsPort?: number | string; httpPort?: number | string; zmqPort?: number | string } | null = null;
+
+  async initRuntimeConfig() {
+    if (typeof window === 'undefined' || (window as any).electronAPI) return;
+    if (typeof fetch !== 'function') return;
+
+    try {
+      const origin = window.location.origin || `${window.location.protocol}//${window.location.host}`;
+      const res = await fetch(`${origin}/config.json`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === 'object') {
+          this.runtimeConfig = data;
+          if (data.wsPort && typeof window !== 'undefined') {
+            (window as any).__BTICK_RUNTIME_CONFIG__ = data;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[BTick] Could not load /config.json runtime configuration, using default ports:', e);
+    }
   }
 
   private getWsPort(): string {
     if (typeof window !== 'undefined') {
       try {
-        const queryPort = new URLSearchParams(window.location.search).get('ws_port');
+        const queryParams = new URLSearchParams(window.location.search);
+        const queryPort = queryParams.get('ws_port') || queryParams.get('wsPort');
         if (queryPort) return queryPort;
       } catch (e) {}
       if ((window as any).__BTICK_WS_PORT__) return String((window as any).__BTICK_WS_PORT__);
+      if (this.runtimeConfig?.wsPort) return String(this.runtimeConfig.wsPort);
+      if ((window as any).__BTICK_RUNTIME_CONFIG__?.wsPort) {
+        return String((window as any).__BTICK_RUNTIME_CONFIG__.wsPort);
+      }
     }
     return '8080';
   }
@@ -60,7 +92,19 @@ class ROS2Service {
     try {
       const host = window.location.hostname || '127.0.0.1';
       const wsPort = this.getWsPort();
-      const wsUrl = `ws://${host}:${wsPort}`;
+      const protocol = typeof window.location !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${host}:${wsPort}`;
+
+      if (this.ws) {
+        try {
+          this.ws.onopen = null;
+          this.ws.onmessage = null;
+          this.ws.onclose = null;
+          this.ws.onerror = null;
+          this.ws.close();
+        } catch (e) {}
+        this.ws = null;
+      }
 
       this.ws = new WebSocket(wsUrl);
 

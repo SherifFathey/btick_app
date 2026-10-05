@@ -4,11 +4,16 @@
 # Match your robot's DDS vendor:  RMW_IMPLEMENTATION=rmw_cyclonedds_cpp docker compose up
 services:
   btick:
-    image: ghcr.io/sheriffathey/btick:0.0.6
+    image: ghcr.io/sheriffathey/btick:0.0.7
     #container_name: btick_app
     network_mode: host        # needed for DDS discovery (ports: is ignored in host mode)
     restart: unless-stopped
     environment:
+      # Port configuration (no rebuild needed)
+      - HTTP_PORT=${HTTP_PORT:-3000}
+      - WS_PORT=${WS_PORT:-8080}
+      - ZMQ_PORT=${ZMQ_PORT:-1667}
+      - ZMQ_HOST=${ZMQ_HOST:-127.0.0.1}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       # - CYCLONEDDS_URI=file:///path/in/container/cyclonedds.xml   (mount the file as a volume)

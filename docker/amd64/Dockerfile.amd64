@@ -38,12 +38,16 @@ FROM ${BASE_IMAGE} AS runtime
 COPY --from=web-build /app/dist /app/dist
 COPY bridge /app/bridge
 
-# Documentation only (ignored with network_mode: host):
-# Web App HTTP (3000), WebSocket Bridge (8080), Groot2 ZMQ (1667)
+# Defaults (can be overridden from docker-compose `environment:`)
+ENV HTTP_PORT=3000 \
+    WS_PORT=8080 \
+    ZMQ_PORT=1667
+
+# Documentation only (ignored with network_mode: host)
 EXPOSE 3000 8080 1667
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/')" || exit 1
+    CMD python3 -c "import os, urllib.request; urllib.request.urlopen('http://localhost:%s/' % os.environ.get('HTTP_PORT', '3000'))" || exit 1
 
 # `exec` so SIGTERM from `docker stop` reaches python
-ENTRYPOINT ["/bin/bash", "-c", "source /opt/ros/jazzy/setup.bash && exec python3 /app/bridge/bt_bridge.py --http-port 3000 --ws-port 8080 --dist-dir /app/dist \"$@\"", "--"]
+ENTRYPOINT ["/bin/bash", "-c", "source /opt/ros/jazzy/setup.bash && exec python3 /app/bridge/bt_bridge.py --http-port \"${HTTP_PORT}\" --ws-port \"${WS_PORT}\" --zmq-port \"${ZMQ_PORT}\" --dist-dir /app/dist \"$@\"", "--"]

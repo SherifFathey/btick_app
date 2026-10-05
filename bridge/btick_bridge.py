@@ -103,19 +103,7 @@ class BTickROS2Bridge:
                     self.is_currently_alive = True
                 else:
                     conn_status = 'DISCONNECTED'
-                    if self.is_currently_alive:
-                        self.is_currently_alive = False
-                        # Clean up active trees upon disconnect
-                        for t_id in list(self.trees.keys()):
-                            if self.on_event_callback:
-                                self.on_event_callback({
-                                    'type': 'tree_destroyed',
-                                    'source': 'btick',
-                                    'protocol': 'btick',
-                                    'tree_id': t_id,
-                                    'status': 'DESTROYED'
-                                })
-                        self.trees.clear()
+                    self.is_currently_alive = False
 
                 if self.on_event_callback:
                     self.on_event_callback({

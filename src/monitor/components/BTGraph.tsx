@@ -1059,8 +1059,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           layoutToken,
         );
         const fitPromise = performExplicitFitView({ duration: 0 });
-        if (fitPromise && typeof (fitPromise as any).then === "function") {
-          (fitPromise as Promise<any>).then((res) => {
+        if (fitPromise && typeof fitPromise.then === "function") {
+          fitPromise.then((res: boolean) => {
             if (res === false) {
               explicitFitRequestedRef.current = true;
               fitRequestedRef.current = true;
@@ -1069,10 +1069,6 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
               setIsTreeReady(true);
             }
           });
-        } else if (fitPromise === false) {
-          explicitFitRequestedRef.current = true;
-          fitRequestedRef.current = true;
-          rafId1Ref.current = requestAnimationFrame(checkAndFit);
         } else {
           setIsTreeReady(true);
         }

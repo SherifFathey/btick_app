@@ -158,16 +158,58 @@ BTick App is composed of a high-performance React frontend and a lightweight Pyt
 
 ---
 
-## Configuration & Options
+## Configuration & Remote Access
 
-The bridge server accepts command-line arguments and environment variables for flexible network setups:
+The bridge server accepts command-line arguments and environment variables without needing image rebuilds:
 
-| Flag | Default | Description |
-| :--- | :--- | :--- |
-| `--http-port` | `3000` | HTTP port for serving the web visualizer |
-| `--ws-port` | `8080` | WebSocket port for streaming telemetry |
-| `--groot-port` | `1667` | Target port for connecting to Groot2 TCP servers |
-| `--ros-domain-id` | `$ROS_DOMAIN_ID` / `0` | ROS 2 domain identifier for topic discovery |
+| CLI Flag | Env Variable | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--http-port` | `HTTP_PORT` | `3000` | HTTP port for serving the web visualizer |
+| `--ws-port` | `WS_PORT` | `8080` | WebSocket port for streaming telemetry |
+| `--zmq-port` / `--groot-port` | `ZMQ_PORT` | `1667` | Target port for connecting to Groot2 / ZMQ servers |
+| `--zmq-host` / `--groot-host` | `ZMQ_HOST` | `127.0.0.1` | Target host for connecting to Groot2 / ZMQ servers |
+| `--open-browser` | `OPEN_BROWSER` | `false` | Automatically open browser at `http://localhost:<HTTP_PORT>` once HTTP server is ready |
+| — | `ROS_DOMAIN_ID` | `0` | ROS 2 domain identifier (must match the robot) |
+| — | `RMW_IMPLEMENTATION` | `rmw_fastrtps_cpp` | Underlying ROS 2 middleware implementation |
+
+### Docker Compose Configuration Example
+
+```yaml
+environment:
+  - HTTP_PORT=${HTTP_PORT:-3000}
+  - WS_PORT=${WS_PORT:-8080}
+  - ZMQ_PORT=${ZMQ_PORT:-1667}
+  - ZMQ_HOST=${ZMQ_HOST:-127.0.0.1}
+  - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+  - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+  - OPEN_BROWSER=${OPEN_BROWSER:-false}
+```
+
+To enable automatic browser opening when launching with Docker Compose:
+
+```env
+OPEN_BROWSER=true
+```
+
+```bash
+OPEN_BROWSER=true docker compose up -d
+```
+
+### Remote Multi-Machine Access
+
+To run the container on one machine (e.g. a Raspberry Pi on the robot) and open the UI from a different computer on the network:
+
+1. **Firewall Setup**: Ensure the robot allows inbound TCP connections on your chosen ports (e.g. `3000`, `8080`, `1667`):
+   ```bash
+   sudo ufw allow 3000/tcp
+   sudo ufw allow 8080/tcp
+   sudo ufw allow 1667/tcp
+   ```
+2. **Launch with Custom Ports**:
+   ```bash
+   HTTP_PORT=4000 WS_PORT=4001 ZMQ_PORT=4002 docker compose up -d
+   ```
+3. **Open in Remote Browser**: Navigate to `http://<robot-ip>:4000`. The frontend automatically queries `/config.json`, resolves WebSocket port `4001`, and connects over `ws://<robot-ip>:4001`.
 
 ---
 

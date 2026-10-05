@@ -16,6 +16,8 @@ import json
 import time
 import threading
 import argparse
+import urllib.request
+import urllib.error
 from http.server import ThreadingHTTPServer
 
 try:
@@ -33,7 +35,8 @@ except ImportError:
 class UnifiedBTBridgeServer:
     def __init__(self, ws_port: int = 8080, http_port: int = 3000, dist_dir: str = "",
                  groot_host: str = "127.0.0.1", groot_port: int = 1667,
-                 enable_ros: bool = True, enable_groot: bool = True, enable_nav2: bool = True):
+                 enable_ros: bool = True, enable_groot: bool = True, enable_nav2: bool = True,
+                 open_browser: bool = False):
         self.ws_port = ws_port
         self.http_port = http_port
         self.dist_dir = dist_dir
@@ -44,6 +47,7 @@ class UnifiedBTBridgeServer:
         self.enable_ros = enable_ros
         self.enable_groot = enable_groot
         self.enable_nav2 = enable_nav2
+        self.open_browser = open_browser
 
         # 1. Initialize Central WebSocket Server
         self.ws_server = StandaloneWebSocketServer(
@@ -308,6 +312,49 @@ class UnifiedBTBridgeServer:
         if self.nav2_bridge:
             self.nav2_bridge.start()
 
+        # 5. Automatically open browser if requested and HTTP server is active
+        if self.open_browser and self.http_port > 0:
+            browser_t = threading.Thread(
+                target=self._open_browser_when_ready,
+                args=(self.http_port,),
+                daemon=True
+            )
+            browser_t.start()
+
+    @staticmethod
+    def _open_browser_when_ready(http_port: int, max_retries: int = 50, delay: float = 0.1):
+        url = f"http://localhost:{http_port}"
+        ready = False
+        for _ in range(max_retries):
+            try:
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req, timeout=1.0) as resp:
+                    if resp.status in (200, 301, 302, 304):
+                        ready = True
+                        break
+            except Exception:
+                pass
+            time.sleep(delay)
+
+        if not ready:
+            print(f"[Unified Bridge] Warning: HTTP server on port {http_port} was not ready in time to open browser.", file=sys.stderr, flush=True)
+            return
+
+        print(f"[Unified Bridge] 🚀 Automatically opening browser at {url}...", flush=True)
+        try:
+            import webbrowser
+            opened = webbrowser.open(url)
+            if not opened:
+                import subprocess
+                for cmd in (["xdg-open", url], ["open", url]):
+                    try:
+                        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        break
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[Unified Bridge] Notice: Could not automatically open browser: {e}", file=sys.stderr, flush=True)
+
     def get_status_info(self) -> dict:
         return {
             'ws_port': self.ws_port,
@@ -568,11 +615,22 @@ class UnifiedBTBridgeServer:
         self.ws_server.stop()
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if str(v).lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif str(v).lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    raise argparse.ArgumentTypeError('Boolean value expected (true/false).')
+
+
 def main():
     default_ws_port = int(os.environ.get("WS_PORT", 8080))
     default_http_port = int(os.environ.get("HTTP_PORT", 3000))
     default_zmq_port = int(os.environ.get("ZMQ_PORT", os.environ.get("GROOT_PORT", 1667)))
     default_zmq_host = os.environ.get("ZMQ_HOST", os.environ.get("GROOT_HOST", "127.0.0.1"))
+    default_open_browser = str2bool(os.environ.get("OPEN_BROWSER", "false"))
 
     parser = argparse.ArgumentParser(description="BTick Unified Multi-Protocol Bridge Server")
     parser.add_argument("--ws-port", type=int, default=default_ws_port, help=f"WebSocket port (default: {default_ws_port})")
@@ -580,6 +638,7 @@ def main():
     parser.add_argument("--dist-dir", type=str, default="", help="Path to built web app dist folder")
     parser.add_argument("--zmq-host", "--groot-host", dest="zmq_host", type=str, default=default_zmq_host, help=f"ZMQ / Groot2 host (default: {default_zmq_host})")
     parser.add_argument("--zmq-port", "--groot-port", dest="zmq_port", type=int, default=default_zmq_port, help=f"ZMQ / Groot2 port (default: {default_zmq_port})")
+    parser.add_argument("--open-browser", type=str2bool, nargs="?", const=True, default=default_open_browser, help=f"Automatically open browser at http://localhost:<HTTP_PORT> (default: {default_open_browser})")
     parser.add_argument("--protocol", choices=["all", "btick", "groot", "nav2"], default="all", help="Target protocol mode (default: all)")
     parser.add_argument("--no-ros", action="store_true", help="Disable ROS 2 DDS listeners")
     parser.add_argument("--no-groot", action="store_true", help="Disable Groot2 ZMQ client")
@@ -619,6 +678,8 @@ def main():
     if args.http_port > 0 and dist_dir:
         print(f" • Web App Browser URL : http://0.0.0.0:{args.http_port}")
         print(f" • Static Assets Path  : {dist_dir}")
+        if args.open_browser:
+            print(f" • Auto Open Browser   : Enabled (http://localhost:{args.http_port})")
     if enable_groot:
         print(f" • Groot2/ZMQ Target   : tcp://{args.zmq_host}:{args.zmq_port}")
     if enable_ros:
@@ -635,7 +696,8 @@ def main():
         groot_port=args.zmq_port,
         enable_ros=enable_ros,
         enable_groot=enable_groot,
-        enable_nav2=enable_nav2
+        enable_nav2=enable_nav2,
+        open_browser=args.open_browser
     )
     server.start()
 

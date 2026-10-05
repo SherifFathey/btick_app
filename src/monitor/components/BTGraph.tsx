@@ -380,15 +380,40 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   const [measuredNodeHeights, setMeasuredNodeHeights] = useState<Map<string, number>>(
     new Map(),
   );
+  const pendingHeightsRef = useRef<Map<string, number>>(new Map());
+  const batchTimeoutRef = useRef<any>(null);
+
   const handleNodeResize = useCallback((nodeId: string, height: number) => {
     updateNodeInternals(nodeId);
-    setMeasuredNodeHeights((previous) => {
-      if (previous.get(nodeId) === height) return previous;
-      const next = new Map(previous);
-      next.set(nodeId, height);
-      return next;
-    });
+    pendingHeightsRef.current.set(nodeId, height);
+
+    if (batchTimeoutRef.current === null) {
+      batchTimeoutRef.current = setTimeout(() => {
+        batchTimeoutRef.current = null;
+        setMeasuredNodeHeights((previous) => {
+          let hasChanges = false;
+          const next = new Map(previous);
+          pendingHeightsRef.current.forEach((h, id) => {
+            if (next.get(id) !== h) {
+              next.set(id, h);
+              hasChanges = true;
+            }
+          });
+          pendingHeightsRef.current.clear();
+          return hasChanges ? next : previous;
+        });
+      }, 16);
+    }
   }, [updateNodeInternals]);
+
+  useEffect(() => {
+    return () => {
+      if (batchTimeoutRef.current !== null) {
+        clearTimeout(batchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     setMeasuredNodeHeights(new Map());
   }, [tree?.tree_id, activeOrientation, activeProtocol, layoutRevision]);
@@ -702,12 +727,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   useEffect(() => {
     if (layoutToken !== lastFittedTokenRef.current) {
       fitRequestedRef.current = true;
-      if (treeSessionKey !== lastExplicitFittedSessionKeyRef.current) {
+      if (layoutToken !== lastExplicitFittedSessionKeyRef.current) {
         explicitFitRequestedRef.current = true;
-        setIsTreeReady(false);
       }
     }
-  }, [layoutToken, treeSessionKey]);
+  }, [layoutToken]);
 
   // Update nodes and edges when tree, orientation, or protocol changes, auto-resetting layout on orientation switch
   useEffect(() => {
@@ -1025,31 +1049,40 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       fitRequestedRef.current = false;
       lastFittedTokenRef.current = layoutToken;
 
-      if (autoCenterRef.current) {
-        // Auto-Center is ON: center on active node, do NOT perform any fitView
+      if (explicitPending) {
+        // Initial tree connection, tree discovery, layout switch, or orientation change:
+        // FIRST PRIORITY: Always perform full-tree Fit View to center the entire tree on the screen
         explicitFitRequestedRef.current = false;
-        lastExplicitFittedSessionKeyRef.current = treeSessionKey;
+        lastExplicitFittedSessionKeyRef.current = layoutToken;
         console.log(
-          '[BTGraph][Viewport] checkAndFit -> Auto-Center is ON (skipping fitView, centering active node)',
-        );
-        centerOnActiveNode(true);
-        setIsTreeReady(true);
-      } else if (explicitPending) {
-        // Auto-Center is OFF: perform explicit full-tree Fit View
-        explicitFitRequestedRef.current = false;
-        lastExplicitFittedSessionKeyRef.current = treeSessionKey;
-        console.log(
-          '[BTGraph][Viewport] checkAndFit -> calling performExplicitFitView for',
-          treeSessionKey,
+          '[BTGraph][Viewport] checkAndFit -> calling performExplicitFitView (first priority) for',
+          layoutToken,
         );
         const fitPromise = performExplicitFitView({ duration: 0 });
         if (fitPromise && typeof (fitPromise as any).then === "function") {
-          (fitPromise as Promise<any>).then(() => {
-            setIsTreeReady(true);
+          (fitPromise as Promise<any>).then((res) => {
+            if (res === false) {
+              explicitFitRequestedRef.current = true;
+              fitRequestedRef.current = true;
+              rafId1Ref.current = requestAnimationFrame(checkAndFit);
+            } else {
+              setIsTreeReady(true);
+            }
           });
+        } else if (fitPromise === false) {
+          explicitFitRequestedRef.current = true;
+          fitRequestedRef.current = true;
+          rafId1Ref.current = requestAnimationFrame(checkAndFit);
         } else {
           setIsTreeReady(true);
         }
+      } else if (autoCenterRef.current) {
+        // Subsequent execution ticks when Auto-Center is ON: center on active node
+        console.log(
+          '[BTGraph][Viewport] checkAndFit -> Auto-Center is ON (centering active node)',
+        );
+        centerOnActiveNode(true);
+        setIsTreeReady(true);
       } else {
         setIsTreeReady(true);
       }

@@ -363,17 +363,17 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  console.log(
-    String.raw` ____ _____ _      _    
-| __ )_   _(_) ___| | __
-|  _ \ | | | |/ __| |/ /
-| |_) || | | | (__|   < 
-|____/ |_| |_|\___|_|\_\
-                        `
-  );
-  console.log('='.repeat(66));
-  console.log(' 🌲 BTICK UNIFIED MULTI-PROTOCOL BRIDGE SERVER');
-  console.log('='.repeat(66));
+//   console.log(
+//     String.raw` ____ _____ _      _    
+// | __ )_   _(_) ___| | __
+// |  _ \ | | | |/ __| |/ /
+// | |_) || | | | (__|   < 
+// |____/ |_| |_|\___|_|\_\
+//                         `
+//   );
+//   console.log('='.repeat(66));
+//   console.log(' 🌲 BTICK UNIFIED MULTI-PROTOCOL BRIDGE SERVER');
+//   console.log('='.repeat(66));
 
   registerIpcHandlers();
   startROS2TopicListeners();

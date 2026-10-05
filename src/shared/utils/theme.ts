@@ -3,7 +3,7 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 const STORAGE_KEY = 'bt_theme_mode';
 
 export function getStoredTheme(): ThemeMode {
-  if (typeof localStorage === 'undefined') return 'dark';
+  if (typeof localStorage === 'undefined') return 'light';
   try {
     const saved = localStorage.getItem(STORAGE_KEY) as ThemeMode;
     if (saved === 'light' || saved === 'dark' || saved === 'system') {
@@ -12,7 +12,7 @@ export function getStoredTheme(): ThemeMode {
   } catch (e) {
     // Fallback if localStorage access is restricted
   }
-  return 'dark';
+  return 'light';
 }
 
 export function getResolvedTheme(mode: ThemeMode): 'light' | 'dark' {
@@ -20,7 +20,7 @@ export function getResolvedTheme(mode: ThemeMode): 'light' | 'dark' {
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    return 'dark';
+    return 'light';
   }
   return mode;
 }

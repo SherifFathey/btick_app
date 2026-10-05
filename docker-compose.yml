@@ -4,7 +4,7 @@
 # Match your robot's DDS vendor:  RMW_IMPLEMENTATION=rmw_cyclonedds_cpp docker compose up
 services:
   btick:
-    image: ghcr.io/sheriffathey/btick:0.0.7
+    image: ghcr.io/sheriffathey/btick:0.0.9
     #container_name: btick_app
     network_mode: host        # needed for DDS discovery (ports: is ignored in host mode)
     restart: unless-stopped

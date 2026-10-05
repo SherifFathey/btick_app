@@ -18,6 +18,7 @@ import {
   useNodesInitialized,
   useViewport,
   useUpdateNodeInternals,
+  useStoreApi,
   BackgroundVariant,
   Node,
   Edge,
@@ -112,6 +113,13 @@ const nodeTypes = {
 
 const edgeTypes = {
   btMonitorEdge: BTMonitorEdge as any,
+};
+
+const DEFAULT_FIT_VIEW_OPTIONS = {
+  padding: 0.2,
+  minZoom: 0.05,
+  maxZoom: 2,
+  duration: 350,
 };
 
 // Background dots are clearly visible in normal/fit view and smoothly hide when zooming far out
@@ -647,35 +655,37 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   );
 
   const nodesInitialized = useNodesInitialized();
+  const fitViewRef = useRef(fitView);
+  fitViewRef.current = fitView;
+  const updateNodeInternalsRef = useRef(updateNodeInternals);
+  updateNodeInternalsRef.current = updateNodeInternals;
+
   const lastLoadedTreeIdRef = useRef<string | null>(null);
   const lastOrientationRef = useRef<TreeOrientation>(activeOrientation);
   const lastProtocolRef = useRef<string>(activeProtocol);
   const lastFittedTokenRef = useRef<string | null>(null);
+  const lastExplicitFittedSessionKeyRef = useRef<string | null>(null);
   const fitRequestedRef = useRef<boolean>(true);
-  const explicitFitRequestedRef = useRef<boolean>(false);
+  const explicitFitRequestedRef = useRef<boolean>(true);
   const rafId1Ref = useRef<number | null>(null);
-  const rafId2Ref = useRef<number | null>(null);
+  const [isTreeReady, setIsTreeReady] = useState<boolean>(
+    () => !tree || !tree.nodes || tree.nodes.length === 0,
+  );
 
-  const performFitView = useCallback(() => {
-    if (!autoCenterRef.current) return;
-    if (nodes.length === 0) return;
-    fitView({
-      padding: 0.2,
-      minZoom: 0.05,
-      maxZoom: 2,
-      duration: 350,
-    });
-  }, [fitView, nodes.length]);
+  const performExplicitFitView = useCallback((options?: any) => {
+    if (nodes.length === 0) return Promise.resolve(false);
+    console.log('[BTGraph][Viewport] performExplicitFitView executing (fit-view)');
+    const isOptionsObject = options && typeof options === "object" && !("nativeEvent" in options);
+    const fitOptions = isOptionsObject ? { ...DEFAULT_FIT_VIEW_OPTIONS, ...options } : DEFAULT_FIT_VIEW_OPTIONS;
+    return fitViewRef.current(fitOptions);
+  }, [nodes.length]);
 
-  const performExplicitFitView = useCallback(() => {
-    if (nodes.length === 0) return;
-    fitView({
-      padding: 0.2,
-      minZoom: 0.05,
-      maxZoom: 2,
-      duration: 350,
-    });
-  }, [fitView, nodes.length]);
+  const treeSessionKey = useMemo(() => {
+    const treeSig = tree
+      ? `${tree.tree_id}:${tree.nodes?.length || 0}:${tree.root_node_id || ""}`
+      : "null";
+    return `${treeSig}:${activeOrientation}:${activeProtocol}:${layoutRevision}`;
+  }, [tree, activeOrientation, activeProtocol, layoutRevision]);
 
   const layoutToken = useMemo(() => {
     const treeSig = tree
@@ -692,8 +702,12 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   useEffect(() => {
     if (layoutToken !== lastFittedTokenRef.current) {
       fitRequestedRef.current = true;
+      if (treeSessionKey !== lastExplicitFittedSessionKeyRef.current) {
+        explicitFitRequestedRef.current = true;
+        setIsTreeReady(false);
+      }
     }
-  }, [layoutToken]);
+  }, [layoutToken, treeSessionKey]);
 
   // Update nodes and edges when tree, orientation, or protocol changes, auto-resetting layout on orientation switch
   useEffect(() => {
@@ -702,13 +716,16 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     if (isOrientationChanged) {
       lastOrientationRef.current = activeOrientation;
       userPositionsRef.current.clear(); // Fully reset layout when switching between V and H
+      explicitFitRequestedRef.current = true;
       fitRequestedRef.current = true;
     }
 
     const isProtocolChanged = lastProtocolRef.current !== activeProtocol;
     if (isProtocolChanged) {
       lastProtocolRef.current = activeProtocol;
+      lastLoadedTreeIdRef.current = null;
       userPositionsRef.current.clear();
+      explicitFitRequestedRef.current = true;
       fitRequestedRef.current = true;
     }
 
@@ -755,6 +772,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       currentTreeId !== null && currentTreeId !== lastLoadedTreeIdRef.current;
     if (isTreeChanged) {
       lastLoadedTreeIdRef.current = currentTreeId;
+      explicitFitRequestedRef.current = true;
       fitRequestedRef.current = true;
     }
   }, [
@@ -796,79 +814,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     [nodes],
   );
 
-  useEffect(() => {
-    nodes.forEach((node) => updateNodeInternals(node.id));
-  }, [nodeGeometryKey, nodes, updateNodeInternals]);
-
-  // Execute fitView deterministically AFTER the new layout is committed, measured, and rendered
-  useEffect(() => {
-    const isExplicit = explicitFitRequestedRef.current;
-    const isAuto = autoCenterRef.current && fitRequestedRef.current;
-
-    if ((!isExplicit && !isAuto) || nodes.length === 0 || !nodesInitialized) {
-      return;
-    }
-
-    if (rafId1Ref.current !== null) {
-      cancelAnimationFrame(rafId1Ref.current);
-      rafId1Ref.current = null;
-    }
-
-    const checkAndFit = () => {
-      const explicitPending = explicitFitRequestedRef.current;
-      const autoPending = autoCenterRef.current && fitRequestedRef.current;
-      if (!explicitPending && !autoPending) return;
-
-      // Verify that React Flow's internal store has received the latest nodes and positions
-      const currentRfNodes = getNodes?.() || [];
-      if (currentRfNodes.length !== nodes.length) {
-        rafId1Ref.current = requestAnimationFrame(checkAndFit);
-        return;
-      }
-
-      const allPositionsMatch = nodes.every((n) => {
-        const rfNode = currentRfNodes.find((rf) => rf.id === n.id);
-        return (
-          rfNode &&
-          rfNode.position.x === n.position.x &&
-          rfNode.position.y === n.position.y
-        );
-      });
-
-      if (!allPositionsMatch) {
-        rafId1Ref.current = requestAnimationFrame(checkAndFit);
-        return;
-      }
-
-      // Final geometry is confirmed in React Flow store: execute fitView
-      fitRequestedRef.current = false;
-      lastFittedTokenRef.current = layoutToken;
-      if (explicitPending) {
-        explicitFitRequestedRef.current = false;
-        performExplicitFitView();
-      } else {
-        performFitView();
-      }
-    };
-
-    rafId1Ref.current = requestAnimationFrame(checkAndFit);
-
-    return () => {
-      if (rafId1Ref.current !== null) {
-        cancelAnimationFrame(rafId1Ref.current);
-        rafId1Ref.current = null;
-      }
-    };
-  }, [
-    layoutToken,
-    nodesInitialized,
-    nodes,
-    nodeGeometryKey,
-    getNodes,
-    performFitView,
-    performExplicitFitView,
-    isAutoCenter,
-  ]);
+  const storeApi = useStoreApi();
 
   // Helper to expand all ancestor nodes so target node is visible on canvas
   const expandAncestors = useCallback(
@@ -987,6 +933,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           initialNodes.find((n: Node) => n.id === latestActiveNode!.id);
         if (target) {
           if (isDraggingNodeRef.current) return;
+          console.log('[BTGraph][Viewport] centerOnActiveNode -> setCenter called for', target.id, 'pos:', target.position);
           setCenter(target.position.x + 120, target.position.y + 40, {
             duration: 350,
           });
@@ -1004,6 +951,130 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       expandAncestors,
     ],
   );
+
+  // Execute fitView deterministically AFTER the new layout is committed, measured, and rendered
+  useEffect(() => {
+    const isExplicit = explicitFitRequestedRef.current;
+    const isAuto = autoCenterRef.current && fitRequestedRef.current;
+
+    if ((!isExplicit && !isAuto) || nodes.length === 0) {
+      return;
+    }
+
+    if (rafId1Ref.current !== null) {
+      cancelAnimationFrame(rafId1Ref.current);
+      rafId1Ref.current = null;
+    }
+
+    const checkAndFit = () => {
+      const explicitPending = explicitFitRequestedRef.current;
+      const autoPending = autoCenterRef.current && fitRequestedRef.current;
+      if (!explicitPending && !autoPending) return;
+
+      // 1. Verify container has valid non-zero dimensions
+      const container = reactFlowWrapperRef.current;
+      const domWidth =
+        container?.clientWidth || container?.getBoundingClientRect().width || 0;
+      const domHeight =
+        container?.clientHeight || container?.getBoundingClientRect().height || 0;
+      const rfState = storeApi.getState();
+      const effectiveWidth = rfState.width > 0 ? rfState.width : domWidth;
+      const effectiveHeight = rfState.height > 0 ? rfState.height : domHeight;
+
+      if (effectiveWidth <= 0 || effectiveHeight <= 0) {
+        rafId1Ref.current = requestAnimationFrame(checkAndFit);
+        return;
+      }
+
+      // 2. Verify that React Flow's internal nodeLookup contains the nodes
+      const nodeLookup = rfState.nodeLookup;
+      if (!nodeLookup || nodeLookup.size === 0) {
+        rafId1Ref.current = requestAnimationFrame(checkAndFit);
+        return;
+      }
+
+      if (!nodesInitialized) {
+        rafId1Ref.current = requestAnimationFrame(checkAndFit);
+        return;
+      }
+
+      const visibleNodes = nodes.filter((n) => !n.hidden);
+      if (visibleNodes.length === 0) return;
+
+      // 3. Verify positions match Dagre layout AND all visible nodes have valid measured dimensions in store
+      const allMeasuredAndPositioned = visibleNodes.every((n) => {
+        const internalNode = nodeLookup.get(n.id);
+        if (!internalNode) return false;
+
+        const posMatch =
+          internalNode.position?.x === n.position.x &&
+          internalNode.position?.y === n.position.y;
+        if (!posMatch) return false;
+
+        const w = internalNode.measured?.width || 0;
+        const h = internalNode.measured?.height || 0;
+        return w > 0 && h > 0;
+      });
+
+      if (!allMeasuredAndPositioned) {
+        rafId1Ref.current = requestAnimationFrame(checkAndFit);
+        return;
+      }
+
+      // Final geometry & complete node bounds confirmed in React Flow store
+      fitRequestedRef.current = false;
+      lastFittedTokenRef.current = layoutToken;
+
+      if (autoCenterRef.current) {
+        // Auto-Center is ON: center on active node, do NOT perform any fitView
+        explicitFitRequestedRef.current = false;
+        lastExplicitFittedSessionKeyRef.current = treeSessionKey;
+        console.log(
+          '[BTGraph][Viewport] checkAndFit -> Auto-Center is ON (skipping fitView, centering active node)',
+        );
+        centerOnActiveNode(true);
+        setIsTreeReady(true);
+      } else if (explicitPending) {
+        // Auto-Center is OFF: perform explicit full-tree Fit View
+        explicitFitRequestedRef.current = false;
+        lastExplicitFittedSessionKeyRef.current = treeSessionKey;
+        console.log(
+          '[BTGraph][Viewport] checkAndFit -> calling performExplicitFitView for',
+          treeSessionKey,
+        );
+        const fitPromise = performExplicitFitView({ duration: 0 });
+        if (fitPromise && typeof (fitPromise as any).then === "function") {
+          (fitPromise as Promise<any>).then(() => {
+            setIsTreeReady(true);
+          });
+        } else {
+          setIsTreeReady(true);
+        }
+      } else {
+        setIsTreeReady(true);
+      }
+    };
+
+    rafId1Ref.current = requestAnimationFrame(checkAndFit);
+
+    return () => {
+      if (rafId1Ref.current !== null) {
+        cancelAnimationFrame(rafId1Ref.current);
+        rafId1Ref.current = null;
+      }
+    };
+  }, [
+    layoutToken,
+    treeSessionKey,
+    nodesInitialized,
+    nodes,
+    nodeGeometryKey,
+    storeApi,
+    getNodes,
+    performExplicitFitView,
+    centerOnActiveNode,
+    isAutoCenter,
+  ]);
 
   // When tree updates or active node changes while isAutoCenter is on, smoothly center
   useEffect(() => {
@@ -1175,7 +1246,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     <div
       ref={reactFlowWrapperRef}
       tabIndex={-1}
-      className="relative w-full h-full bg-canvas outline-none [container-type:inline-size]"
+      className={`relative w-full h-full bg-canvas outline-none [container-type:inline-size] transition-opacity duration-150 ${isTreeReady ? "opacity-100" : "opacity-0"
+        }`}
     >
       {/* Floating Paused at Breakpoint Top Banner & Action Controls */}
       {isPausedAtBreakpoint && (
@@ -1328,10 +1400,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         edgeTypes={edgeTypes}
         nodesDraggable={!isLocked}
         nodesConnectable={false}
-        elementsSelectable={true}
-        fitView={isAutoCenter}
-        fitViewOptions={{ padding: 0.2, minZoom: 0.05, maxZoom: 2, duration: 350 }}
+        defaultViewport={viewport}
+        fitView={!viewport}
+        fitViewOptions={{ ...DEFAULT_FIT_VIEW_OPTIONS, duration: 0 }}
         onMove={(_, nextViewport) => {
+          console.log('[BTGraph][Viewport] onMove (viewport changed):', nextViewport);
           onViewportChange?.(nextViewport);
           if (contextMenu) {
             positionContextMenu(contextMenu.anchorElement);
@@ -1351,7 +1424,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           showFitView={false}
         >
           <ControlButton
-            onClick={() => fitView({ padding: 0.2, minZoom: 0.05, maxZoom: 2, duration: 350 })}
+            onClick={() => performExplicitFitView()}
             title="Fit View to Screen"
             className="!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !text-text-primary hover:!text-accent-primary !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all !w-6 !h-6 !m-0"
           >

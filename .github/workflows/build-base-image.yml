@@ -78,7 +78,9 @@ jobs:
           file: docker/${{ matrix.arch }}/Dockerfile.${{ matrix.arch }}.base
           platforms: ${{ matrix.platform }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          outputs: type=image,"name=${{ env.GHCR_IMAGE }},docker.io/${{ env.DOCKERHUB_REPO }}",push-by-digest=true,name-canonical=true,push=true
+          outputs: |
+            type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+            type=image,name=docker.io/${{ env.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=base-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=base-${{ matrix.arch }}
       - name: Export digest

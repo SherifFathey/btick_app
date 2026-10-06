@@ -12,7 +12,7 @@ env:
   # Must already exist on GHCR: run "Build Base Image" first.
   # Keep it equal to the image_tag_version used there (default: base).
   BASE_TAG: base
-  DOCKERHUB_REPO: ${{ secrets.USERNAME}}/btick
+  DOCKERHUB_REPO: ${{ secrets.USERNAME }}/btick
 
 jobs:
   verify-release:
@@ -52,7 +52,8 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PAT_TOKEN }}
       - name: Ensure the base image exists
         run: |
-          BASE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick-base:${BASE_TAG}"
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          BASE="ghcr.io/${OWNER}/btick-base:${BASE_TAG}"
           docker buildx imagetools inspect "$BASE" >/dev/null 2>&1 || {
             echo "::error::Base image $BASE not found. Run 'Build Base Image' first."; exit 1; }
 
@@ -194,7 +195,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.USERNAME}}
+          username: ${{ secrets.USERNAME }}
           password: ${{ secrets.DOCKERHUB_PAT_TOKEN }}
       - id: meta
         uses: docker/metadata-action@v5
@@ -208,7 +209,7 @@ jobs:
       - name: Create multi-arch manifest and push tags
         working-directory: ${{ runner.temp }}/digests
         env:
-          METADATA_JSON: ${{ steps.meta.outputs.json }}
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           ghcr_tags=()
           hub_tags=()
@@ -221,7 +222,7 @@ jobs:
                 hub_tags+=("-t" "$tag")
               fi
             fi
-          done < <(jq -r '.tags[]' <<< "$METADATA_JSON")
+          done <<< "$TAGS"
 
           ghcr_sources=()
           hub_sources=()
@@ -244,7 +245,7 @@ jobs:
 
       - name: Print published image names
         env:
-          METADATA_JSON: ${{ steps.meta.outputs.json }}
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           echo "=================================================================="
           echo " Successfully published multi-arch Docker images:"
@@ -253,18 +254,20 @@ jobs:
             if [[ -n "$tag" ]]; then
               echo "  $tag"
             fi
-          done < <(jq -r '.tags[]' <<< "$METADATA_JSON")
+          done <<< "$TAGS"
           echo "=================================================================="
 
       - name: Job Summary
         if: always()
         env:
-          METADATA_JSON: ${{ steps.meta.outputs.json }}
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          echo "### 🚀 Published Docker Images" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          while IFS= read -r tag; do
-            if [[ -n "$tag" ]]; then
-              echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
-            fi
-          done < <(jq -r '.tags[]' <<< "$METADATA_JSON")
+          if [[ -n "$TAGS" ]]; then
+            echo "### 🚀 Published Docker Images" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            while IFS= read -r tag; do
+              if [[ -n "$tag" ]]; then
+                echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
+              fi
+            done <<< "$TAGS"
+          fi

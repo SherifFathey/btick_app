@@ -12,6 +12,7 @@ env:
   # Must already exist on GHCR: run "Build Base Image" first.
   # Keep it equal to the image_tag_version used there (default: base).
   BASE_TAG: base
+  DOCKERHUB_REPO: ${{ secrets.DOCKERHUB_USERNAME || 'sheriffathey' }}/btick
 
 jobs:
   verify-release:
@@ -38,11 +39,17 @@ jobs:
           if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
             echo "::error::Tag ${GITHUB_REF_NAME} (${GITHUB_SHA}) is not on main. Aborting."; exit 1
           fi
-      - uses: docker/login-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PAT_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME || 'sheriffathey' }}
+          password: ${{ secrets.DOCKERHUB_PAT_TOKEN || secrets.DOCKERHUB_TOKEN }}
       - name: Ensure the base image exists
         run: |
           BASE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick-base:${BASE_TAG}"
@@ -69,15 +76,22 @@ jobs:
     steps:
       - name: Prepare
         run: |
-          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick" >> "$GITHUB_ENV"
-          echo "BASE_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick-base:${BASE_TAG}" >> "$GITHUB_ENV"
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "GHCR_IMAGE=ghcr.io/${OWNER}/btick" >> "$GITHUB_ENV"
+          echo "BASE_IMAGE=ghcr.io/${OWNER}/btick-base:${BASE_TAG}" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PAT_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME || 'sheriffathey' }}
+          password: ${{ secrets.DOCKERHUB_PAT_TOKEN || secrets.DOCKERHUB_TOKEN }}
       - id: build
         uses: docker/build-push-action@v6
         with:
@@ -89,7 +103,9 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ github.event.release.tag_name }}
-          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: |
+            type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+            type=image,name=docker.io/${{ env.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=app-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=app-${{ matrix.arch }}
       - name: Export digest
@@ -120,18 +136,23 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
+      - name: Prepare
+        run: |
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "GHCR_IMAGE=ghcr.io/${OWNER}/btick" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           name: digests-app-${{ matrix.arch }}
           path: digests
-      - uses: docker/login-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PAT_TOKEN }}
       - name: Smoke test the image
         run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick"
+          IMAGE="${{ env.GHCR_IMAGE }}"
           REF="$IMAGE@sha256:$(ls digests)"
           docker pull "$REF"
           for rmw in rmw_fastrtps_cpp rmw_cyclonedds_cpp; do
@@ -146,7 +167,7 @@ jobs:
           docker logs btick
           exit 1
 
-  # Merges both architectures into one manifest and applies the tags.
+  # Merges both architectures into one manifest and applies the tags to both registries.
   publish:
     needs: smoke
     permissions:
@@ -155,46 +176,95 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Prepare
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/btick" >> "$GITHUB_ENV"
+        run: |
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "GHCR_IMAGE=ghcr.io/${OWNER}/btick" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-app-*
           merge-multiple: true
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PAT_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME || 'sheriffathey' }}
+          password: ${{ secrets.DOCKERHUB_PAT_TOKEN || secrets.DOCKERHUB_TOKEN }}
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE }}
+          images: |
+            ${{ env.GHCR_IMAGE }}
+            ${{ env.DOCKERHUB_REPO }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ github.event.release.tag_name }}
             type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
       - name: Create multi-arch manifest and push tags
         working-directory: ${{ runner.temp }}/digests
         env:
           METADATA_JSON: ${{ steps.meta.outputs.json }}
         run: |
-          args=()
+          ghcr_tags=()
+          hub_tags=()
 
           while IFS= read -r tag; do
-            args+=("-t" "$tag")
+            if [[ -n "$tag" ]]; then
+              if [[ "$tag" == ghcr.io/* ]]; then
+                ghcr_tags+=("-t" "$tag")
+              else
+                hub_tags+=("-t" "$tag")
+              fi
+            fi
           done < <(jq -r '.tags[]' <<< "$METADATA_JSON")
 
+          ghcr_sources=()
+          hub_sources=()
           for digest_file in *; do
             if [[ "$digest_file" =~ ^[0-9a-f]{64}$ ]]; then
-              args+=("$IMAGE@sha256:$digest_file")
+              ghcr_sources+=("${GHCR_IMAGE}@sha256:$digest_file")
+              hub_sources+=("docker.io/${DOCKERHUB_REPO}@sha256:$digest_file")
             fi
           done
 
-          if [[ ${#args[@]} -eq 0 ]]; then
-            echo "::error::No manifest inputs found"
-            exit 1
+          if [[ ${#ghcr_tags[@]} -gt 0 && ${#ghcr_sources[@]} -gt 0 ]]; then
+            echo "Creating and pushing GHCR manifest..."
+            docker buildx imagetools create "${ghcr_tags[@]}" "${ghcr_sources[@]}"
           fi
 
-          docker buildx imagetools create "${args[@]}"
+          if [[ ${#hub_tags[@]} -gt 0 && ${#hub_sources[@]} -gt 0 ]]; then
+            echo "Creating and pushing Docker Hub manifest..."
+            docker buildx imagetools create "${hub_tags[@]}" "${hub_sources[@]}"
+          fi
+
+      - name: Print published image names
+        env:
+          METADATA_JSON: ${{ steps.meta.outputs.json }}
+        run: |
+          echo "=================================================================="
+          echo " Successfully published multi-arch Docker images:"
+          echo "=================================================================="
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "  $tag"
+            fi
+          done < <(jq -r '.tags[]' <<< "$METADATA_JSON")
+          echo "=================================================================="
+
+      - name: Job Summary
+        if: always()
+        env:
+          METADATA_JSON: ${{ steps.meta.outputs.json }}
+        run: |
+          echo "### 🚀 Published Docker Images" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          done < <(jq -r '.tags[]' <<< "$METADATA_JSON")

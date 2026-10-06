@@ -21,21 +21,14 @@ services:
   # Required for automatic ROS 2 DDS peer discovery (Zenoh / CycloneDDS / FastDDS).
   # ----------------------------------------------------------------------------
   btick:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ghcr.io/sheriffathey/btick:latest
-    container_name: btick_app
+    image: ghcr.io/sheriffathey/btick:0.0.13
     network_mode: host
     restart: unless-stopped
     environment:
-      # Port configuration (no rebuild needed)
       - HTTP_PORT=${HTTP_PORT:-3000}
       - WS_PORT=${WS_PORT:-8080}
       - ZMQ_PORT=${ZMQ_PORT:-1667}
       - ZMQ_HOST=${ZMQ_HOST:-127.0.0.1}
-
-      # ROS 2 Domain & Middleware configuration (Must match robot's ROS_DOMAIN_ID)
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI:-}
@@ -43,16 +36,22 @@ services:
 
       # Automatic browser opening (set OPEN_BROWSER=true to auto-open in host browser)
       - OPEN_BROWSER=${OPEN_BROWSER:-false}
+      - BROWSER=/usr/local/bin/xdg-open
+      - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}
+      - XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}
 
+    volumes:
+      - /tmp:/tmp:ro
+      - ${XDG_RUNTIME_DIR:-/run/user}:${XDG_RUNTIME_DIR:-/run/user}:ro
+
+
+      
   # ----------------------------------------------------------------------------
   # Option B: Bridge Networking Mode (Alternative when host mode is unavailable)
   # NOTE: ROS 2 DDS multicast peer discovery across machines may NOT work in bridge
   # mode without dedicated DDS router/unicast configuration.
   # ----------------------------------------------------------------------------
   # btick-bridge-mode:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
   #   image: ghcr.io/sheriffathey/btick:latest
   #   container_name: btick_app_bridge
   #   restart: unless-stopped

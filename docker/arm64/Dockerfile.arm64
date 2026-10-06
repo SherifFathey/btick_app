@@ -37,6 +37,7 @@ FROM ${BASE_IMAGE} AS runtime
 
 COPY --from=web-build /app/dist /app/dist
 COPY bridge /app/bridge
+COPY --chmod=755 docker/open_browser.py /usr/local/bin/xdg-open
 
 # Defaults (can be overridden from docker-compose `environment:`)
 ENV HTTP_PORT=3000 \

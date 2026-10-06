@@ -12,7 +12,7 @@ env:
   # Must already exist on GHCR: run "Build Base Image" first.
   # Keep it equal to the image_tag_version used there (default: base).
   BASE_TAG: base
-  DOCKERHUB_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/btick
+  DOCKERHUB_REPO: ${{ secrets.USERNAME }}/btick
 
 jobs:
   verify-release:
@@ -48,7 +48,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.USERNAME }}
           password: ${{ secrets.DOCKERHUB_PAT_TOKEN }}
       - name: Ensure the base image exists
         run: |
@@ -91,7 +91,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.USERNAME }}
           password: ${{ secrets.DOCKERHUB_PAT_TOKEN }}
       - id: build
         uses: docker/build-push-action@v6
@@ -104,9 +104,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ github.event.release.tag_name }}
-          outputs: |
-            type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
-            type=image,name=docker.io/${{ env.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=app-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=app-${{ matrix.arch }}
       - name: Export digest
@@ -195,7 +193,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.USERNAME }}
           password: ${{ secrets.DOCKERHUB_PAT_TOKEN }}
       - id: meta
         uses: docker/metadata-action@v5
@@ -210,6 +208,7 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
+          PRIMARY_TAG: ${{ github.event.release.tag_name }}
         run: |
           ghcr_tags=()
           hub_tags=()
@@ -225,11 +224,9 @@ jobs:
           done <<< "$TAGS"
 
           ghcr_sources=()
-          hub_sources=()
           for digest_file in *; do
             if [[ "$digest_file" =~ ^[0-9a-f]{64}$ ]]; then
               ghcr_sources+=("${GHCR_IMAGE}@sha256:$digest_file")
-              hub_sources+=("docker.io/${DOCKERHUB_REPO}@sha256:$digest_file")
             fi
           done
 
@@ -238,9 +235,9 @@ jobs:
             docker buildx imagetools create "${ghcr_tags[@]}" "${ghcr_sources[@]}"
           fi
 
-          if [[ ${#hub_tags[@]} -gt 0 && ${#hub_sources[@]} -gt 0 ]]; then
+          if [[ ${#hub_tags[@]} -gt 0 ]]; then
             echo "Creating and pushing Docker Hub manifest..."
-            docker buildx imagetools create "${hub_tags[@]}" "${hub_sources[@]}"
+            docker buildx imagetools create "${hub_tags[@]}" "${GHCR_IMAGE}:${PRIMARY_TAG}"
           fi
 
       - name: Print published image names

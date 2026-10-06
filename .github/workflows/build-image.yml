@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-        name: Validate release tag format (vX.Y.Z)
+      - name: Validate release tag format (vX.Y.Z)
         env:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
@@ -104,7 +104,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ github.event.release.tag_name }}
-          outputs: type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=${{ env.GHCR_IMAGE }},docker.io/${{ env.DOCKERHUB_REPO }}",push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=app-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=app-${{ matrix.arch }}
       - name: Export digest
@@ -208,7 +208,6 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
-          PRIMARY_TAG: ${{ github.event.release.tag_name }}
         run: |
           ghcr_tags=()
           hub_tags=()
@@ -224,9 +223,11 @@ jobs:
           done <<< "$TAGS"
 
           ghcr_sources=()
+          hub_sources=()
           for digest_file in *; do
             if [[ "$digest_file" =~ ^[0-9a-f]{64}$ ]]; then
               ghcr_sources+=("${GHCR_IMAGE}@sha256:$digest_file")
+              hub_sources+=("docker.io/${DOCKERHUB_REPO}@sha256:$digest_file")
             fi
           done
 
@@ -235,9 +236,9 @@ jobs:
             docker buildx imagetools create "${ghcr_tags[@]}" "${ghcr_sources[@]}"
           fi
 
-          if [[ ${#hub_tags[@]} -gt 0 ]]; then
+          if [[ ${#hub_tags[@]} -gt 0 && ${#hub_sources[@]} -gt 0 ]]; then
             echo "Creating and pushing Docker Hub manifest..."
-            docker buildx imagetools create "${hub_tags[@]}" "${GHCR_IMAGE}:${PRIMARY_TAG}"
+            docker buildx imagetools create "${hub_tags[@]}" "${hub_sources[@]}"
           fi
 
       - name: Print published image names

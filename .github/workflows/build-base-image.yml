@@ -78,7 +78,7 @@ jobs:
           file: docker/${{ matrix.arch }}/Dockerfile.${{ matrix.arch }}.base
           platforms: ${{ matrix.platform }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          outputs: type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=${{ env.GHCR_IMAGE }},docker.io/${{ env.DOCKERHUB_REPO }}",push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=base-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=base-${{ matrix.arch }}
       - name: Export digest
@@ -122,18 +122,22 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         run: |
           ghcr_sources=()
+          hub_sources=()
           for digest_file in *; do
             if [[ "$digest_file" =~ ^[0-9a-f]{64}$ ]]; then
               ghcr_sources+=("${GHCR_IMAGE}@sha256:$digest_file")
+              hub_sources+=("docker.io/${DOCKERHUB_REPO}@sha256:$digest_file")
             fi
           done
 
           if [[ ${#ghcr_sources[@]} -gt 0 ]]; then
             echo "Creating and pushing GHCR base manifest..."
             docker buildx imagetools create -t "${GHCR_IMAGE}:${BASE_TAG}" "${ghcr_sources[@]}"
+          fi
 
+          if [[ ${#hub_sources[@]} -gt 0 ]]; then
             echo "Creating and pushing Docker Hub base manifest..."
-            docker buildx imagetools create -t "${DOCKERHUB_REPO}:${BASE_TAG}" "${GHCR_IMAGE}:${BASE_TAG}"
+            docker buildx imagetools create -t "${DOCKERHUB_REPO}:${BASE_TAG}" "${hub_sources[@]}"
           fi
 
       - name: Print published base image names

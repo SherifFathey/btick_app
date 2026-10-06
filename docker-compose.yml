@@ -21,7 +21,7 @@ services:
   # Required for automatic ROS 2 DDS peer discovery (Zenoh / CycloneDDS / FastDDS).
   # ----------------------------------------------------------------------------
   btick:
-    image: ghcr.io/sheriffathey/btick:0.0.13
+    image: ghcr.io/sheriffathey/btick:0.0.14
     network_mode: host
     restart: unless-stopped
     environment:
@@ -35,7 +35,7 @@ services:
       - PYTHONUNBUFFERED=1
 
       # Automatic browser opening (set OPEN_BROWSER=true to auto-open in host browser)
-      - OPEN_BROWSER=${OPEN_BROWSER:-false}
+      - OPEN_BROWSER=${OPEN_BROWSER:-true}
       - BROWSER=/usr/local/bin/xdg-open
       - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}
       - XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}

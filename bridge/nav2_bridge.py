@@ -276,6 +276,8 @@ class Nav2ROS2Bridge:
             while self.running and rclpy.ok():
                 executor.spin_once(timeout_sec=0.005)
 
+        except rclpy.executors.ExternalShutdownException:
+            pass
         finally:
             if HAVE_RCLPY and rclpy.ok():
                 try:

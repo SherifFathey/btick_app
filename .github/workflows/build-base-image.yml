@@ -5,7 +5,7 @@ on:
     inputs:
       image_tag_version:
         required: false
-        default: 'base'
+        default: "base"
         type: string
 
 permissions:

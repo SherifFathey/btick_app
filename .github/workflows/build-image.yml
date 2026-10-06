@@ -57,7 +57,7 @@ jobs:
           docker buildx imagetools inspect "$BASE" >/dev/null 2>&1 || {
             echo "::error::Base image $BASE not found. Run 'Build Base Image' first."; exit 1; }
 
-  # Builds Dockerfile.<arch> natively on each architecture and pushes by digest (no tags yet).
+  # Builds Dockerfile.<arch> natively on each architecture and pushes by digest to GHCR only (no tags yet).
   build:
     needs: verify-release
     permissions:
@@ -88,11 +88,6 @@ jobs:
           registry: ghcr.io
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PAT_TOKEN }}
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PAT_TOKEN }}
       - id: build
         uses: docker/build-push-action@v6
         with:
@@ -104,9 +99,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ github.event.release.tag_name }}
-          outputs: |
-            type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
-            type=image,name=docker.io/${{ env.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=app-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=app-${{ matrix.arch }}
       - name: Export digest
@@ -168,7 +161,7 @@ jobs:
           docker logs btick
           exit 1
 
-  # Merges both architectures into one manifest and applies the tags to both registries.
+  # Merges both architectures into one manifest on GHCR, then copies it to Docker Hub.
   publish:
     needs: smoke
     permissions:
@@ -211,37 +204,38 @@ jobs:
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          ghcr_tags=()
+          ghcr_tag_args=()
+          ghcr_first_tag=""
           hub_tags=()
 
           while IFS= read -r tag; do
-            if [[ -n "$tag" ]]; then
-              if [[ "$tag" == ghcr.io/* ]]; then
-                ghcr_tags+=("-t" "$tag")
-              else
-                hub_tags+=("-t" "$tag")
-              fi
+            [[ -z "$tag" ]] && continue
+            if [[ "$tag" == ghcr.io/* ]]; then
+              ghcr_tag_args+=("-t" "$tag")
+              [[ -z "$ghcr_first_tag" ]] && ghcr_first_tag="$tag"
+            else
+              hub_tags+=("$tag")
             fi
           done <<< "$TAGS"
 
           ghcr_sources=()
-          hub_sources=()
           for digest_file in *; do
             if [[ "$digest_file" =~ ^[0-9a-f]{64}$ ]]; then
               ghcr_sources+=("${GHCR_IMAGE}@sha256:$digest_file")
-              hub_sources+=("docker.io/${DOCKERHUB_REPO}@sha256:$digest_file")
             fi
           done
 
-          if [[ ${#ghcr_tags[@]} -gt 0 && ${#ghcr_sources[@]} -gt 0 ]]; then
-            echo "Creating and pushing GHCR manifest..."
-            docker buildx imagetools create "${ghcr_tags[@]}" "${ghcr_sources[@]}"
+          if [[ ${#ghcr_sources[@]} -eq 0 || -z "$ghcr_first_tag" ]]; then
+            echo "::error::No digests or GHCR tags found"; exit 1
           fi
 
-          if [[ ${#hub_tags[@]} -gt 0 && ${#hub_sources[@]} -gt 0 ]]; then
-            echo "Creating and pushing Docker Hub manifest..."
-            docker buildx imagetools create "${hub_tags[@]}" "${hub_sources[@]}"
-          fi
+          echo "Creating and pushing GHCR manifest..."
+          docker buildx imagetools create "${ghcr_tag_args[@]}" "${ghcr_sources[@]}"
+
+          echo "Copying manifest to Docker Hub..."
+          for t in "${hub_tags[@]}"; do
+            docker buildx imagetools create -t "$t" "$ghcr_first_tag"
+          done
 
       - name: Print published image names
         env:

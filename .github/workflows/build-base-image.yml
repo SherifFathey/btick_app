@@ -28,18 +28,8 @@ jobs:
       - name: Validate tag
         run: |
           [[ "$BASE_TAG" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || { echo "::error::Invalid image_tag_version '$BASE_TAG'"; exit 1; }
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PAT_TOKEN }}
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PAT_TOKEN }}
 
+  # Builds natively on each architecture and pushes by digest to GHCR only (no tags yet).
   build:
     needs: guard
     strategy:
@@ -66,11 +56,6 @@ jobs:
           registry: ghcr.io
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PAT_TOKEN }}
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PAT_TOKEN }}
       - id: build
         uses: docker/build-push-action@v6
         with:
@@ -78,9 +63,7 @@ jobs:
           file: docker/${{ matrix.arch }}/Dockerfile.${{ matrix.arch }}.base
           platforms: ${{ matrix.platform }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          outputs: |
-            type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
-            type=image,name=docker.io/${{ env.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=base-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=base-${{ matrix.arch }}
       - name: Export digest
@@ -95,6 +78,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # Merges both architectures into one manifest on GHCR, then copies it to Docker Hub.
   merge:
     needs: build
     runs-on: ubuntu-latest
@@ -124,23 +108,21 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         run: |
           ghcr_sources=()
-          hub_sources=()
           for digest_file in *; do
             if [[ "$digest_file" =~ ^[0-9a-f]{64}$ ]]; then
               ghcr_sources+=("${GHCR_IMAGE}@sha256:$digest_file")
-              hub_sources+=("docker.io/${DOCKERHUB_REPO}@sha256:$digest_file")
             fi
           done
 
-          if [[ ${#ghcr_sources[@]} -gt 0 ]]; then
-            echo "Creating and pushing GHCR base manifest..."
-            docker buildx imagetools create -t "${GHCR_IMAGE}:${BASE_TAG}" "${ghcr_sources[@]}"
+          if [[ ${#ghcr_sources[@]} -eq 0 ]]; then
+            echo "::error::No digests found"; exit 1
           fi
 
-          if [[ ${#hub_sources[@]} -gt 0 ]]; then
-            echo "Creating and pushing Docker Hub base manifest..."
-            docker buildx imagetools create -t "${DOCKERHUB_REPO}:${BASE_TAG}" "${hub_sources[@]}"
-          fi
+          echo "Creating and pushing GHCR base manifest..."
+          docker buildx imagetools create -t "${GHCR_IMAGE}:${BASE_TAG}" "${ghcr_sources[@]}"
+
+          echo "Copying manifest to Docker Hub..."
+          docker buildx imagetools create -t "${DOCKERHUB_REPO}:${BASE_TAG}" "${GHCR_IMAGE}:${BASE_TAG}"
 
       - name: Print published base image names
         run: |

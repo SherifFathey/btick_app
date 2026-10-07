@@ -65,7 +65,7 @@ jobs:
       - name: Package .deb
         env:
           USE_SYSTEM_FPM: ${{ matrix.arch == 'arm64' && 'true' || 'false' }}
-        run: npx electron-builder --linux deb --${{ matrix.arch }} -c.deb.artifactName='${packageName}_v${version}_${arch}.${ext}' --publish never
+        run: npx electron-builder --linux deb --${{ matrix.arch }} -c.deb.artifactName='${name}_v${version}_${arch}.${ext}' --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.arch }}

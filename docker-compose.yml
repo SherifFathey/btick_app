@@ -21,7 +21,7 @@ services:
   # Required for automatic ROS 2 DDS peer discovery (Zenoh / CycloneDDS / FastDDS).
   # ----------------------------------------------------------------------------
   btick:
-    image: ghcr.io/sheriffathey/btick:0.0.15
+    image: sheriffathey/btick:v0.0.19
     network_mode: host
     restart: unless-stopped
     environment:

@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const { RecordingStore } = require('./recordingStore.cjs');
 
@@ -271,22 +272,65 @@ function registerIpcHandlers() {
   });
 }
 
+function getAppIcon() {
+  const os = require('os');
+  const candidates = [
+    path.join(__dirname, '../build/icons/512x512.png'),
+    path.join(__dirname, '../build/icons/icon.png'),
+    path.join(__dirname, '../public/tree.png'),
+    path.join(__dirname, '../dist/tree.png'),
+    path.join(process.resourcesPath || '', 'build/icons/512x512.png'),
+    path.join(process.resourcesPath || '', 'build/icons/icon.png'),
+    path.join(process.resourcesPath || '', 'dist/tree.png'),
+    path.join(process.resourcesPath || '', 'public/tree.png'),
+    '/usr/share/icons/hicolor/512x512/apps/btick.png',
+    path.join(os.homedir(), '.local/share/icons/hicolor/512x512/apps/btick.png'),
+    '/usr/share/pixmaps/btick.png',
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (candidate && fs.existsSync(candidate)) {
+        const img = nativeImage.createFromPath(candidate);
+        if (!img.isEmpty()) {
+          return { img, path: candidate };
+        }
+      }
+    } catch (_) {}
+  }
+  return { img: null, path: null };
+}
+
 function createWindow() {
   const wsPort = process.env.BTICK_WS_PORT || '8080';
-  mainWindow = new BrowserWindow({
+  const appIcon = getAppIcon();
+
+  const windowOptions = {
     width: 1440,
     height: 900,
     minWidth: 1024,
     minHeight: 640,
     title: 'BTick',
     backgroundColor: '#F8FAFC',
-    icon: path.join(__dirname, '../dist/tree.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
     },
-  });
+  };
+
+  if (appIcon.img && !appIcon.img.isEmpty()) {
+    windowOptions.icon = appIcon.img;
+  } else if (appIcon.path) {
+    windowOptions.icon = appIcon.path;
+  }
+
+  mainWindow = new BrowserWindow(windowOptions);
+
+  if (appIcon.img && !appIcon.img.isEmpty()) {
+    try {
+      mainWindow.setIcon(appIcon.img);
+    } catch (_) {}
+  }
 
   // Automatically maximize window to fill screen width and height (not F11 fullscreen)
   mainWindow.maximize();

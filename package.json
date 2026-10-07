@@ -61,7 +61,8 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "build/icons/**/*"
     ],
     "extraResources": [
       {
@@ -78,7 +79,7 @@
       "target": [
         "deb"
       ],
-      "icon": "public/tree.png",
+      "icon": "build/icons",
       "executableArgs": [
         "--no-sandbox",
         "--disable-gpu"

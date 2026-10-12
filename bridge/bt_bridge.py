@@ -478,6 +478,7 @@ class UnifiedBTBridgeServer:
             "has_ros2": HAVE_RCLPY and bool(self.btick_bridge),
             "has_groot2": HAVE_ZMQ and bool(self.groot2_bridge),
             "groot2_connected": bool(self.groot2_bridge and self.groot2_bridge.running),
+            "has_nav2": bool(self.nav2_bridge),
             "current_source": self.current_source,
             "trees": {
                 "btick": list(self.btick_bridge.trees.keys())
@@ -657,6 +658,11 @@ class UnifiedBTBridgeServer:
             elif source == "nav2":
                 if self.nav2_bridge:
                     self.nav2_bridge.send_command(cmd)
+                else:
+                    print(
+                        f"[NAV2] Command '{cmd.get('action')}' rejected: Nav2 monitoring is disabled.",
+                        file=sys.stderr,
+                    )
 
         # 2. Instant Tree Discovery Query from Web UI
         elif msg_type in ("get_tree", "get_trees", "request_tree", "discover"):

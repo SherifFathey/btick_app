@@ -20,31 +20,90 @@ import argparse
 # Optional ROS 2 Imports
 HAVE_RCLPY = False
 HAVE_NAV2_MSGS = False
-try:
-    import rclpy
-    from rclpy.node import Node
-    from rclpy.qos import (
-        QoSProfile,
-        ReliabilityPolicy,
-        HistoryPolicy,
-        qos_profile_action_status_default,
-    )
+HAVE_ACTION_MSGS = False
 
-    HAVE_RCLPY = True
-    try:
-        from nav2_msgs.msg import BehaviorTreeLog, BehaviorTreeStatusChange
+rclpy = None
+Node = None
+QoSProfile = None
+ReliabilityPolicy = None
+HistoryPolicy = None
+qos_profile_action_status_default = None
 
-        HAVE_NAV2_MSGS = True
-    except ImportError:
-        pass
-    try:
-        from action_msgs.msg import GoalStatusArray
+BehaviorTreeLog = None
+BehaviorTreeStatusChange = None
+GoalStatusArray = None
 
-        HAVE_ACTION_MSGS = True
-    except ImportError:
-        HAVE_ACTION_MSGS = False
-except ImportError:
-    HAVE_ACTION_MSGS = False
+
+def try_import_nav2_dependencies():
+    """Dynamically attempts to import rclpy, nav2_msgs, and action_msgs."""
+    global HAVE_RCLPY, HAVE_NAV2_MSGS, HAVE_ACTION_MSGS
+    global \
+        rclpy, \
+        Node, \
+        QoSProfile, \
+        ReliabilityPolicy, \
+        HistoryPolicy, \
+        qos_profile_action_status_default
+    global BehaviorTreeLog, BehaviorTreeStatusChange, GoalStatusArray
+
+    if not HAVE_RCLPY:
+        try:
+            import rclpy as _rclpy
+            from rclpy.node import Node as _Node
+            from rclpy.qos import (
+                QoSProfile as _QoSProfile,
+                ReliabilityPolicy as _ReliabilityPolicy,
+                HistoryPolicy as _HistoryPolicy,
+            )
+
+            try:
+                from rclpy.qos import (
+                    qos_profile_action_status_default as _qos_action_default,
+                )
+
+                qos_profile_action_status_default = _qos_action_default
+            except ImportError:
+                pass
+
+            rclpy = _rclpy
+            Node = _Node
+            QoSProfile = _QoSProfile
+            ReliabilityPolicy = _ReliabilityPolicy
+            HistoryPolicy = _HistoryPolicy
+            HAVE_RCLPY = True
+        except ImportError:
+            pass
+
+    if HAVE_RCLPY and not HAVE_NAV2_MSGS:
+        try:
+            import importlib
+
+            importlib.invalidate_caches()
+            from nav2_msgs.msg import (
+                BehaviorTreeLog as _BehaviorTreeLog,
+                BehaviorTreeStatusChange as _BehaviorTreeStatusChange,
+            )
+
+            BehaviorTreeLog = _BehaviorTreeLog
+            BehaviorTreeStatusChange = _BehaviorTreeStatusChange
+            HAVE_NAV2_MSGS = True
+        except ImportError:
+            pass
+
+    if HAVE_RCLPY and not HAVE_ACTION_MSGS:
+        try:
+            from action_msgs.msg import GoalStatusArray as _GoalStatusArray
+
+            GoalStatusArray = _GoalStatusArray
+            HAVE_ACTION_MSGS = True
+        except ImportError:
+            pass
+
+    return HAVE_RCLPY and HAVE_NAV2_MSGS
+
+
+# Initial import attempt
+try_import_nav2_dependencies()
 
 try:
     from common import StandaloneWebSocketServer, SPAHTTPHandler
@@ -80,14 +139,18 @@ class Nav2ROS2Bridge:
         on_event_callback=None,
         topic="/behavior_tree_log",
         activity_timeout: float = 2.0,
+        retry_interval: float = 2.0,
     ):
         self.on_event_callback = on_event_callback
         self.log_topic = (topic or "/behavior_tree_log").strip()
         if not self.log_topic.startswith("/"):
             self.log_topic = "/" + self.log_topic
         self.activity_timeout = float(activity_timeout)
+        self.retry_interval = max(0.5, float(retry_interval))
+        self._stop_event = threading.Event()
         self.node = None
         self.sub_log = None
+        self.action_subs = []
         self.trees = {}  # tree_id -> tree_data
         self.running = False
         self.thread = None
@@ -123,23 +186,24 @@ class Nav2ROS2Bridge:
                 if self.sub_log:
                     self.node.destroy_subscription(self.sub_log)
                     self.sub_log = None
-                qos_transitions = QoSProfile(
-                    history=HistoryPolicy.KEEP_LAST,
-                    depth=100,
-                    reliability=ReliabilityPolicy.RELIABLE,
-                )
-                if HAVE_NAV2_MSGS:
+                if HAVE_NAV2_MSGS and BehaviorTreeLog is not None:
+                    qos_transitions = QoSProfile(
+                        history=HistoryPolicy.KEEP_LAST,
+                        depth=100,
+                        reliability=ReliabilityPolicy.RELIABLE,
+                    )
                     self.sub_log = self.node.create_subscription(
                         BehaviorTreeLog,
                         self.log_topic,
                         self._nav2_log_cb,
                         qos_transitions,
                     )
+                    print(f"[NAV2] Subscribed to topic: '{self.log_topic}'")
                 else:
-                    raise RuntimeError(
-                        "nav2_msgs/msg/BehaviorTreeLog is required for /behavior_tree_log"
+                    print(
+                        f"[NAV2] Warning: nav2_msgs is not available; deferred subscription to '{self.log_topic}' until dependency is loaded.",
+                        file=sys.stderr,
                     )
-                print(f"[NAV2] Subscribed to topic: '{self.log_topic}'")
             except Exception as e:
                 print(
                     f"[NAV2] Error updating topic subscription to '{self.log_topic}': {e}",
@@ -156,21 +220,49 @@ class Nav2ROS2Bridge:
         return False
 
     def start(self):
-        if not HAVE_RCLPY:
-            print(
-                "[NAV2] rclpy is not installed; ROS 2 DDS listener disabled.",
-                file=sys.stderr,
-            )
+        if self.running:
             return
 
         self.running = True
-        self.thread = threading.Thread(target=self._nav2_loop, daemon=True)
-        self.thread.start()
+        self._stop_event.clear()
 
-        self.liveness_thread = threading.Thread(
-            target=self._liveness_worker, daemon=True
-        )
-        self.liveness_thread.start()
+        if self.thread is None or not self.thread.is_alive():
+            self.thread = threading.Thread(target=self._nav2_loop, daemon=True)
+            self.thread.start()
+
+        if self.liveness_thread is None or not self.liveness_thread.is_alive():
+            self.liveness_thread = threading.Thread(
+                target=self._liveness_worker, daemon=True
+            )
+            self.liveness_thread.start()
+
+    def _cleanup_ros_node(self, executor=None):
+        """Cleans up subscriptions and ROS node without shutting down global rclpy."""
+        if executor and self.node:
+            try:
+                executor.remove_node(self.node)
+            except Exception:
+                pass
+        if self.node:
+            if self.sub_log:
+                try:
+                    self.node.destroy_subscription(self.sub_log)
+                except Exception:
+                    pass
+                self.sub_log = None
+
+            for sub in self.action_subs:
+                try:
+                    self.node.destroy_subscription(sub)
+                except Exception:
+                    pass
+            self.action_subs.clear()
+
+            try:
+                self.node.destroy_node()
+            except Exception:
+                pass
+            self.node = None
 
     def _liveness_worker(self):
         """
@@ -182,7 +274,8 @@ class Nav2ROS2Bridge:
         """
         while self.running:
             try:
-                time.sleep(0.5)
+                if self._stop_event.wait(timeout=0.5):
+                    break
                 now = time.time()
 
                 pub_count = 0
@@ -257,63 +350,116 @@ class Nav2ROS2Bridge:
                 pass
 
     def _nav2_loop(self):
-        try:
-            if not rclpy.ok():
-                rclpy.init(args=None)
-            self.node = Node("nav2_bt_bridge_subscriber")
+        warned_missing_msgs = False
+        warned_missing_rclpy = False
 
-            qos_transitions = QoSProfile(
-                history=HistoryPolicy.KEEP_LAST,
-                depth=100,
-                reliability=ReliabilityPolicy.RELIABLE,
-            )
-
-            if not HAVE_NAV2_MSGS:
-                raise RuntimeError(
-                    "nav2_msgs/msg/BehaviorTreeLog is required for /behavior_tree_log"
-                )
-            self.sub_log = self.node.create_subscription(
-                BehaviorTreeLog, self.log_topic, self._nav2_log_cb, qos_transitions
-            )
-
-            # Nav2 Action Status Listeners (Detect Goal Succeeded, Aborted, Canceled)
-            if HAVE_ACTION_MSGS:
-                qos_action = (
-                    qos_profile_action_status_default
-                    if "qos_profile_action_status_default" in globals()
-                    else qos_transitions
-                )
-                for action_status_topic in (
-                    "/navigate_to_pose/_action/status",
-                    "/navigate_through_poses/_action/status",
-                    "/follow_path/_action/status",
-                ):
-                    try:
-                        self.node.create_subscription(
-                            GoalStatusArray,
-                            action_status_topic,
-                            self._nav2_action_status_cb,
-                            qos_action,
+        while self.running:
+            # 1. Verify / retry rclpy availability
+            if not HAVE_RCLPY or rclpy is None:
+                try_import_nav2_dependencies()
+                if not HAVE_RCLPY or rclpy is None:
+                    if not warned_missing_rclpy:
+                        print(
+                            "[NAV2] Warning: rclpy is not installed; Nav2 ROS 2 DDS listener disabled. Retrying in background...",
+                            file=sys.stderr,
                         )
+                        warned_missing_rclpy = True
+                    self._stop_event.wait(self.retry_interval)
+                    continue
+
+            warned_missing_rclpy = False
+
+            # 2. Verify / retry nav2_msgs availability
+            if not HAVE_NAV2_MSGS or BehaviorTreeLog is None:
+                try_import_nav2_dependencies()
+                if not HAVE_NAV2_MSGS or BehaviorTreeLog is None:
+                    if not warned_missing_msgs:
+                        print(
+                            "[NAV2] Warning: nav2_msgs is not available; /behavior_tree_log listener disabled. Retrying in background...",
+                            file=sys.stderr,
+                        )
+                        warned_missing_msgs = True
+                    self._stop_event.wait(self.retry_interval)
+                    continue
+
+            if warned_missing_msgs:
+                print(
+                    f"[NAV2] nav2_msgs dependency detected. Resuming /behavior_tree_log listener on '{self.log_topic}'."
+                )
+                warned_missing_msgs = False
+
+            # 3. Initialize ROS 2 node and subscriptions
+            executor = None
+            try:
+                if not rclpy.ok():
+                    rclpy.init(args=None)
+
+                if self.node is None:
+                    self.node = Node("nav2_bt_bridge_subscriber")
+
+                qos_transitions = QoSProfile(
+                    history=HistoryPolicy.KEEP_LAST,
+                    depth=100,
+                    reliability=ReliabilityPolicy.RELIABLE,
+                )
+
+                if self.sub_log is None:
+                    self.sub_log = self.node.create_subscription(
+                        BehaviorTreeLog,
+                        self.log_topic,
+                        self._nav2_log_cb,
+                        qos_transitions,
+                    )
+
+                # Nav2 Action Status Listeners (Detect Goal Succeeded, Aborted, Canceled)
+                if HAVE_ACTION_MSGS and GoalStatusArray is not None:
+                    qos_action = (
+                        qos_profile_action_status_default
+                        if qos_profile_action_status_default is not None
+                        else qos_transitions
+                    )
+                    for action_status_topic in (
+                        "/navigate_to_pose/_action/status",
+                        "/navigate_through_poses/_action/status",
+                        "/follow_path/_action/status",
+                    ):
+                        try:
+                            sub = self.node.create_subscription(
+                                GoalStatusArray,
+                                action_status_topic,
+                                self._nav2_action_status_cb,
+                                qos_action,
+                            )
+                            self.action_subs.append(sub)
+                        except Exception:
+                            pass
+
+                print(f"[NAV2] ROS 2 listeners active ({self.log_topic})")
+
+                executor = rclpy.executors.SingleThreadedExecutor()
+                executor.add_node(self.node)
+
+                while self.running and rclpy.ok():
+                    executor.spin_once(timeout_sec=0.005)
+
+            except rclpy.executors.ExternalShutdownException:
+                break
+            except Exception as e:
+                if self.running:
+                    print(
+                        f"[NAV2] Error in ROS 2 listener: {e}. Retrying in {self.retry_interval}s...",
+                        file=sys.stderr,
+                    )
+                    self._cleanup_ros_node(executor)
+                    self._stop_event.wait(self.retry_interval)
+            finally:
+                if executor and self.node:
+                    try:
+                        executor.remove_node(self.node)
                     except Exception:
                         pass
 
-            print(f"[NAV2] ROS 2 listeners active ({self.log_topic})")
-
-            executor = rclpy.executors.SingleThreadedExecutor()
-            executor.add_node(self.node)
-
-            while self.running and rclpy.ok():
-                executor.spin_once(timeout_sec=0.005)
-
-        except rclpy.executors.ExternalShutdownException:
-            pass
-        finally:
-            if HAVE_RCLPY and rclpy.ok():
-                try:
-                    rclpy.shutdown()
-                except Exception:
-                    pass
+        self._cleanup_ros_node()
 
     def find_tree_for_node(
         self, node_name: str, uid: int = 0, default_tree_id: str = "Nav2Navigation"
@@ -516,13 +662,14 @@ class Nav2ROS2Bridge:
 
     def stop(self):
         self.running = False
-        if self.node and HAVE_RCLPY and rclpy.ok():
-            try:
-                if self.sub_log:
-                    self.node.destroy_subscription(self.sub_log)
-                    self.sub_log = None
-            except Exception:
-                pass
+        self._stop_event.set()
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=1.0)
+            self.thread = None
+        if self.liveness_thread and self.liveness_thread.is_alive():
+            self.liveness_thread.join(timeout=1.0)
+            self.liveness_thread = None
+        self._cleanup_ros_node()
 
 
 # ==============================================================================

@@ -35,81 +35,67 @@ BTick App operates seamlessly across multiple communication backends (ROS 2 DDS 
 
 ## Quick Start
 
-### Option 1: Web Mode (Zero Installation on Client)
+### Option 1: Docker Container (One-Command Deployment)
 
-Start the unified HTTP server and bridge on your robot or development workstation:
-
-```bash
-cd src/btick_app
-npm run web
-```
-
-Then open **`http://localhost:3000`** (or `http://<robot-ip>:3000`) in any modern web browser (Chrome, Firefox, Safari, Edge, tablets, or phones).
-
----
-
-### Option 2: Docker Container (One-Command Deployment)
-
-Deploy BTick in a lightweight container with host network integration for automatic ROS 2 DDS and Groot2 discovery:
+Deploy BTick using Docker Compose with host network integration for automatic ROS 2 DDS and Groot2 discovery:
 
 ```bash
-cd src/btick_app
 docker compose up -d
 ```
 
-*Or run with standard Docker commands:*
+_Or run with standard Docker commands:_
 
 ```bash
 docker build -t btick .
 docker run -d --net=host -p 3000:3000 -p 8080:8080 --name btick btick:latest
 ```
 
-Open **`http://localhost:3000`** in your browser.
+Then open **`http://localhost:3000`** (or `http://<robot-ip>:3000`) in any modern web browser (Chrome, Firefox, Safari, Edge, tablets, or phones).
 
 ---
 
-### Option 3: Standalone Desktop App (Linux `.deb` / `.AppImage`)
+### Option 2: Standalone Desktop App (Debian Package)
 
-Install the pre-built desktop package on Ubuntu / Debian:
+Download and install the official standalone desktop application package on Ubuntu / Debian:
 
 ```bash
-sudo dpkg -i release/btick_1.0.0_amd64.deb
+wget https://github.com/SherifFathey/btick_app/releases/latest/download/btick_v1.2.3_amd64.deb
+sudo apt install ./btick_v1.2.3_amd64.deb
 ```
 
-*Or launch the desktop application in development mode:*
+Then run it directly from your terminal:
 
 ```bash
-cd src/btick_app
-npm run desktop
+btick
 ```
 
 ---
 
 ## Project Structure
 
-| Path / Directory | Role | Description |
-| :--- | :--- | :--- |
-| `bridge/` | Backend Bridge Daemons | Multi-protocol Python servers bridging ROS 2, Groot2, and Nav2 to WebSockets |
-| `bridge/bt_bridge.py` | Unified Multi-Protocol Server | Unified bridge listening on ROS 2 DDS, Groot2 TCP, and Nav2 logging topics |
-| `bridge/btick_bridge.py` | Dedicated BTick Bridge | Dedicated ROS 2 bridge for `/btick/tree_discovery`, `/btick/tree_transitions`, and `/btick/command_*` |
-| `bridge/groot2_bridge.py` | Groot2 TCP Client Bridge | Connects to standard `BT::Groot2Publisher` (ZeroMQ/TCP port 1667) and streams events |
-| `bridge/nav2_bridge.py` | Nav2 Logger Bridge | Subscribes to Nav2 `/behavior_tree_log` topic and maps status changes to graph events |
-| `bridge/common.py` | Shared Bridge Utilities | Common XML tree parsers, data models, and WebSocket client dispatchers |
-| `src/` | Frontend Application Source | React 18 and TypeScript application codebase |
-| `src/monitor/` | Tree Monitor Module | Real-time tree canvas, graph auto-layout, node status rendering, and transition handlers |
-| `src/monitor/components/` | Monitor UI Components | Canvas viewports, blackboard tables, port editors, breakpoints modal, and replay scrubber |
-| `src/monitor/protocols/` | Frontend Protocol Clients | WebSocket adapters for BTick, Groot2, Nav2, and offline file playback |
-| `src/editor/` | Tree Editor Module | Visual Behavior Tree XML editor, node palette, drag-and-drop hierarchy builder |
-| `src/shared/` | Shared UI & Utilities | Common buttons, modals, icons, theme toggles, and data formatting utilities |
-| `electron/` | Desktop Shell | Electron configuration, main process runner, preload scripts, and session file store |
-| `electron/main.cjs` | Electron Main Entry | Desktop window lifecycle management, menu configuration, and native IPC handling |
-| `public/` | Static Public Assets | Web application icons, protocol badges, and favicon assets |
-| `release/` | Packaging Outputs | Built standalone distribution packages (`.deb`, `.AppImage`, unpacked binaries) |
-| `Dockerfile` | Container Definition | Production multi-stage Docker build recipe for web server and bridge |
-| `docker-compose.yml` | Container Orchestration | Docker Compose configuration with host network mode for DDS discovery |
-| `package.json` | Project Manifest | Node.js dependencies, build scripts, desktop packaging metadata, and targets |
-| `vite.config.ts` | Frontend Bundler Config | Vite development server and build configuration with React plugin |
-| `tailwind.config.js` | Styling Configuration | Tailwind CSS utility theme configuration, colors, and layout tokens |
+| Path / Directory          | Role                          | Description                                                                                           |
+| :------------------------ | :---------------------------- | :---------------------------------------------------------------------------------------------------- |
+| `bridge/`                 | Backend Bridge Daemons        | Multi-protocol Python servers bridging ROS 2, Groot2, and Nav2 to WebSockets                          |
+| `bridge/bt_bridge.py`     | Unified Multi-Protocol Server | Unified bridge listening on ROS 2 DDS, Groot2 TCP, and Nav2 logging topics                            |
+| `bridge/btick_bridge.py`  | Dedicated BTick Bridge        | Dedicated ROS 2 bridge for `/btick/tree_discovery`, `/btick/tree_transitions`, and `/btick/command_*` |
+| `bridge/groot2_bridge.py` | Groot2 TCP Client Bridge      | Connects to standard `BT::Groot2Publisher` (ZeroMQ/TCP port 1667) and streams events                  |
+| `bridge/nav2_bridge.py`   | Nav2 Logger Bridge            | Subscribes to Nav2 `/behavior_tree_log` topic and maps status changes to graph events                 |
+| `bridge/common.py`        | Shared Bridge Utilities       | Common XML tree parsers, data models, and WebSocket client dispatchers                                |
+| `src/`                    | Frontend Application Source   | React 18 and TypeScript application codebase                                                          |
+| `src/monitor/`            | Tree Monitor Module           | Real-time tree canvas, graph auto-layout, node status rendering, and transition handlers              |
+| `src/monitor/components/` | Monitor UI Components         | Canvas viewports, blackboard tables, port editors, breakpoints modal, and replay scrubber             |
+| `src/monitor/protocols/`  | Frontend Protocol Clients     | WebSocket adapters for BTick, Groot2, Nav2, and offline file playback                                 |
+| `src/editor/`             | Tree Editor Module            | Visual Behavior Tree XML editor, node palette, drag-and-drop hierarchy builder                        |
+| `src/shared/`             | Shared UI & Utilities         | Common buttons, modals, icons, theme toggles, and data formatting utilities                           |
+| `electron/`               | Desktop Shell                 | Electron configuration, main process runner, preload scripts, and session file store                  |
+| `electron/main.cjs`       | Electron Main Entry           | Desktop window lifecycle management, menu configuration, and native IPC handling                      |
+| `public/`                 | Static Public Assets          | Web application icons, protocol badges, and favicon assets                                            |
+| `release/`                | Packaging Outputs             | Built standalone distribution packages (`.deb`, `.AppImage`, unpacked binaries)                       |
+| `Dockerfile`              | Container Definition          | Production multi-stage Docker build recipe for web server and bridge                                  |
+| `docker-compose.yml`      | Container Orchestration       | Docker Compose configuration with host network mode for DDS discovery                                 |
+| `package.json`            | Project Manifest              | Node.js dependencies, build scripts, desktop packaging metadata, and targets                          |
+| `vite.config.ts`          | Frontend Bundler Config       | Vite development server and build configuration with React plugin                                     |
+| `tailwind.config.js`      | Styling Configuration         | Tailwind CSS utility theme configuration, colors, and layout tokens                                   |
 
 ---
 
@@ -145,16 +131,15 @@ BTick App is composed of a high-performance React frontend and a lightweight Pyt
 
 ## Build & Package Commands
 
-| Command | Description |
-| :--- | :--- |
-| `npm run dev` | Starts the Vite development server with hot reload |
-| `npm run build` | Compiles production frontend assets to `dist/` |
-| `npm run web` | Builds frontend and starts Web server on `http://localhost:3000` |
-| `npm run desktop` | Starts native Electron desktop application |
-| `npm run build:deb` | Packages standalone `.deb` installer into `release/` |
-| `npm run build:appimage` | Builds standalone `.AppImage` bundle into `release/` |
-| `npm run bridge` | Runs the multi-protocol Python bridge directly |
-| `docker compose up` | Launches containerized web app and bridge on host network |
+| Command                  | Description                                               |
+| :----------------------- | :-------------------------------------------------------- |
+| `docker compose up -d`   | Launches containerized web app and bridge on host network |
+| `btick`                  | Launches installed native desktop application             |
+| `npm run dev`            | Starts the Vite development server with hot reload        |
+| `npm run build`          | Compiles production frontend assets to `dist/`            |
+| `npm run build:deb`      | Packages standalone `.deb` installer into `release/`      |
+| `npm run build:appimage` | Builds standalone `.AppImage` bundle into `release/`      |
+| `npm run bridge`         | Runs the multi-protocol Python bridge directly            |
 
 ---
 
@@ -162,15 +147,15 @@ BTick App is composed of a high-performance React frontend and a lightweight Pyt
 
 The bridge server accepts command-line arguments and environment variables without needing image rebuilds:
 
-| CLI Flag | Env Variable | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `--http-port` | `HTTP_PORT` | `3000` | HTTP port for serving the web visualizer |
-| `--ws-port` | `WS_PORT` | `8080` | WebSocket port for streaming telemetry |
-| `--zmq-port` / `--groot-port` | `ZMQ_PORT` | `1667` | Target port for connecting to Groot2 / ZMQ servers |
-| `--zmq-host` / `--groot-host` | `ZMQ_HOST` | `127.0.0.1` | Target host for connecting to Groot2 / ZMQ servers |
-| `--open-browser` | `OPEN_BROWSER` | `false` | Automatically open browser at `http://localhost:<HTTP_PORT>` once HTTP server is ready |
-| — | `ROS_DOMAIN_ID` | `0` | ROS 2 domain identifier (must match the robot) |
-| — | `RMW_IMPLEMENTATION` | `rmw_fastrtps_cpp` | Underlying ROS 2 middleware implementation |
+| CLI Flag                      | Env Variable         | Default            | Description                                                                            |
+| :---------------------------- | :------------------- | :----------------- | :------------------------------------------------------------------------------------- |
+| `--http-port`                 | `HTTP_PORT`          | `3000`             | HTTP port for serving the web visualizer                                               |
+| `--ws-port`                   | `WS_PORT`            | `8080`             | WebSocket port for streaming telemetry                                                 |
+| `--zmq-port` / `--groot-port` | `ZMQ_PORT`           | `1667`             | Target port for connecting to Groot2 / ZMQ servers                                     |
+| `--zmq-host` / `--groot-host` | `ZMQ_HOST`           | `127.0.0.1`        | Target host for connecting to Groot2 / ZMQ servers                                     |
+| `--open-browser`              | `OPEN_BROWSER`       | `false`            | Automatically open browser at `http://localhost:<HTTP_PORT>` once HTTP server is ready |
+| —                             | `ROS_DOMAIN_ID`      | `0`                | ROS 2 domain identifier (must match the robot)                                         |
+| —                             | `RMW_IMPLEMENTATION` | `rmw_fastrtps_cpp` | Underlying ROS 2 middleware implementation                                             |
 
 ### Docker Compose Configuration Example
 

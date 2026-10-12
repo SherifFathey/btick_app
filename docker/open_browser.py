@@ -6,6 +6,7 @@ Lightweight host browser opener for containerized BTick.
 - If Chrome is not running, falls back to the host's XDG Desktop Portal over D-Bus
   to launch the default browser normally.
 """
+
 import glob
 import os
 import socket
@@ -61,7 +62,11 @@ def find_dbus_socket() -> str | None:
     # 1. Explicit DBUS_SESSION_BUS_ADDRESS takes highest priority
     dbus_addr = os.environ.get("DBUS_SESSION_BUS_ADDRESS", "").strip()
     if dbus_addr:
-        path = dbus_addr[len("unix:path="):] if dbus_addr.startswith("unix:path=") else dbus_addr
+        path = (
+            dbus_addr[len("unix:path=") :]
+            if dbus_addr.startswith("unix:path=")
+            else dbus_addr
+        )
         return path if os.path.exists(path) else None
 
     # 2. XDG_RUNTIME_DIR takes next priority
@@ -112,7 +117,11 @@ def open_via_desktop_portal(url: str) -> bool:
         # SASL Auth (EXTERNAL)
         current_uid = os.getuid()
         uid_hex = str(current_uid).encode("utf-8").hex()
-        s.sendall(f"\0AUTH EXTERNAL {uid_hex}\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n".encode("utf-8"))
+        s.sendall(
+            f"\0AUTH EXTERNAL {uid_hex}\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n".encode(
+                "utf-8"
+            )
+        )
         while True:
             line = s.recv(1024)
             if not line:
@@ -120,7 +129,9 @@ def open_via_desktop_portal(url: str) -> bool:
             if b"OK" in line:
                 break
             if b"REJECTED" in line:
-                raise PermissionError(f"D-Bus authentication rejected for UID {current_uid}")
+                raise PermissionError(
+                    f"D-Bus authentication rejected for UID {current_uid}"
+                )
 
         # D-Bus Hello message
         hello_msg = (

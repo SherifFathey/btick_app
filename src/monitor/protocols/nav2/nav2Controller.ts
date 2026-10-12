@@ -1,4 +1,4 @@
-import { BTTreeModel } from '../../types/bt';
+import { BTTreeModel } from "../../types/bt";
 
 /**
  * Isolated Command & Lifecycle Controller for Nav2 (Passive Mode)
@@ -12,16 +12,16 @@ export class Nav2Controller {
 
   public registerLoadedTree(tree: BTTreeModel) {
     this.sendCommand({
-      action: 'register_tree',
+      action: "register_tree",
       tree,
-      source: 'nav2',
+      source: "nav2",
     });
   }
 
   public requestSampleTree() {
     this.sendCommand({
-      type: 'request_sample_tree',
-      source: 'nav2',
+      type: "request_sample_tree",
+      source: "nav2",
     });
   }
 }

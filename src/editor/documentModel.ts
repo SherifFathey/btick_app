@@ -347,10 +347,7 @@ export const canConnectNodes = (
   }
 
   // Leaf check: leaf nodes cannot be parents
-  if (
-    parent.category === "Action" ||
-    parent.category === "Condition"
-  ) {
+  if (parent.category === "Action" || parent.category === "Condition") {
     return {
       allowed: false,
       reason: `Cannot connect: ${parent.category} node "${parent.name || parent.type}" is a leaf and cannot have children`,

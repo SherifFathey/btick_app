@@ -89,7 +89,6 @@ export const BTEditorEdge: React.FC<EdgeProps> = ({
   const edgeData = (data || {}) as unknown as BTEditorEdgeData;
   const renderedPath = edgeData.pathMode === "bezier" ? bezierPath : edgePath;
 
-
   // Dragging directly from the edge/path to reconnect the parent to another node
   const handleMouseDown = (event: React.MouseEvent) => {
     if (event.button !== 0) return;

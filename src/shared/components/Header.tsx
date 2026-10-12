@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from "react";
 import {
   Square,
   Download,
@@ -14,22 +14,29 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
-} from 'lucide-react';
-import treeLogo from '../../assets/tree.png';
-import { RecordingSession, ViewMode } from '../../monitor/types/bt';
-import { LiveStatusDisplayMode, ProtocolConnectionStatus, ENABLE_LIVE_SESSION_RECORDING } from '../../monitor/protocols/types';
-import { normalizeRecordingSession } from '../../monitor/protocols/session/sessionManager';
-import { ValidationIssue } from '../../editor/types';
-import { AppMode } from '../types';
-import { SettingsPopover } from './SettingsPopover';
+} from "lucide-react";
+import treeLogo from "../../assets/tree.png";
+import { RecordingSession, ViewMode } from "../../monitor/types/bt";
+import {
+  LiveStatusDisplayMode,
+  ProtocolConnectionStatus,
+  ENABLE_LIVE_SESSION_RECORDING,
+} from "../../monitor/protocols/types";
+import { normalizeRecordingSession } from "../../monitor/protocols/session/sessionManager";
+import { ValidationIssue } from "../../editor/types";
+import { AppMode } from "../types";
+import { SettingsPopover } from "./SettingsPopover";
 
 interface HeaderProps {
   appMode?: AppMode;
   onModeChange?: (mode: AppMode) => void;
   isConnected: boolean;
   connectionStatus?: ProtocolConnectionStatus;
-  protocolStatuses?: Record<'btick' | 'groot2' | 'nav2', ProtocolConnectionStatus>;
-  activeProtocol?: 'btick' | 'groot2' | 'nav2';
+  protocolStatuses?: Record<
+    "btick" | "groot2" | "nav2",
+    ProtocolConnectionStatus
+  >;
+  activeProtocol?: "btick" | "groot2" | "nav2";
   treesList?: Array<{ tree_id: string }>;
   selectedTreeId?: string | null;
   viewMode: ViewMode;
@@ -40,7 +47,12 @@ interface HeaderProps {
   onSaveSession: () => void;
   onLoadSession: (session: RecordingSession) => void;
   onLoadTreeXml?: (xmlContent: string, fileName: string) => void;
-  onSwitchSource?: (source: 'btick' | 'groot2' | 'nav2', host?: string, port?: number, topic?: string) => void;
+  onSwitchSource?: (
+    source: "btick" | "groot2" | "nav2",
+    host?: string,
+    port?: number,
+    topic?: string,
+  ) => void;
   onOpenNav2Prompt?: () => void;
   onDisconnect?: () => void;
   isReplaying?: boolean;
@@ -69,12 +81,12 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  appMode = 'monitor',
+  appMode = "monitor",
   onModeChange,
   isConnected = false,
-  connectionStatus = 'DISCONNECTED',
+  connectionStatus = "DISCONNECTED",
   protocolStatuses,
-  activeProtocol = 'btick',
+  activeProtocol = "btick",
   treesList = [],
   selectedTreeId,
   viewMode,
@@ -93,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
   recordedEventsCount = 0,
   onSwitchToLive,
   onSwitchToRecorded,
-  liveStatusDisplayMode = 'current',
+  liveStatusDisplayMode = "current",
   onLiveStatusDisplayModeChange,
 
   // Editor toolbar props
@@ -128,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({
       };
       reader.readAsText(file);
     }
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -142,16 +154,16 @@ export const Header: React.FC<HeaderProps> = ({
           const sessionData = JSON.parse(event.target?.result as string);
           const session = normalizeRecordingSession(sessionData);
           if (!session) {
-            throw new Error('Invalid session recording format');
+            throw new Error("Invalid session recording format");
           }
           onLoadSession(session);
         } catch (err) {
-          console.error('Error loading session file:', err);
-          alert('Failed to parse session recording file.');
+          console.error("Error loading session file:", err);
+          alert("Failed to parse session recording file.");
         }
       };
       reader.readAsText(file);
-      e.target.value = '';
+      e.target.value = "";
     }
   };
 
@@ -166,7 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
       };
       reader.readAsText(file);
-      e.target.value = '';
+      e.target.value = "";
     }
   };
 
@@ -175,11 +187,15 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Left: App Branding */}
       <div className="flex items-center gap-2 justify-start min-w-0 shrink-0">
         <div className="flex items-center gap-2 shrink-0 pr-1">
-          <img src={treeLogo} alt="BTick" className="w-5 h-5 object-contain opacity-90 shrink-0 dark:brightness-0 dark:invert dark:opacity-100" />
+          <img
+            src={treeLogo}
+            alt="BTick"
+            className="w-5 h-5 object-contain opacity-90 shrink-0 dark:brightness-0 dark:invert dark:opacity-100"
+          />
           <h1 className="text-xs font-bold text-text-primary tracking-wide font-mono uppercase whitespace-nowrap shrink-0">
             BTICK
           </h1>
-          {appMode === 'editor' && editorTreesList.length > 0 && (
+          {appMode === "editor" && editorTreesList.length > 0 && (
             <label className="flex items-center gap-1 text-[10px] text-text-muted">
               <span>Trees:</span>
               <select
@@ -189,44 +205,54 @@ export const Header: React.FC<HeaderProps> = ({
                 aria-label="Select behavior tree"
               >
                 {editorTreesList.map((treeId) => (
-                  <option key={treeId} value={treeId}>{treeId}</option>
+                  <option key={treeId} value={treeId}>
+                    {treeId}
+                  </option>
                 ))}
               </select>
             </label>
           )}
         </div>
-
       </div>
 
       {/* Center: LIVE vs RECORDED (REPLAY) Mode Switcher in Monitor OR File Ops / Undo / Redo in Editor */}
       <div className="flex items-center justify-center shrink-0">
-        {appMode === 'monitor' && hasRecordedSession && (
+        {appMode === "monitor" && hasRecordedSession && (
           <div className="flex items-center bg-surface-tertiary p-0.5 rounded-lg border border-border-subtle text-xs font-semibold whitespace-nowrap shrink-0 shadow-2xs">
             <button
               onClick={onSwitchToLive}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${!isReplaying
-                ? 'bg-rose-600 text-white font-bold shadow-sm'
-                : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
-                }`}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                !isReplaying
+                  ? "bg-rose-600 text-white font-bold shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+              }`}
               title="Switch to Live Monitoring Mode"
             >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${!isReplaying ? 'bg-white animate-pulse' : 'bg-rose-500'}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${!isReplaying ? "bg-white animate-pulse" : "bg-rose-500"}`}
+              />
               <span className="whitespace-nowrap">LIVE</span>
             </button>
 
             <button
               onClick={onSwitchToRecorded}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${isReplaying
-                ? 'bg-accent-primary text-white font-bold shadow-sm'
-                : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover font-bold'
-                }`}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isReplaying
+                  ? "bg-accent-primary text-white font-bold shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-hover font-bold"
+              }`}
               title="Switch to Recorded Replay Mode"
             >
               <Film className="w-3 h-3 shrink-0" />
               <span className="whitespace-nowrap">REPLAY</span>
               {recordedEventsCount > 0 && (
-                <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-md ${isReplaying ? 'bg-white/20 text-white' : 'bg-surface-secondary text-text-muted border border-border-subtle'
-                  }`}>
+                <span
+                  className={`text-[9px] font-mono px-1.5 py-0.2 rounded-md ${
+                    isReplaying
+                      ? "bg-white/20 text-white"
+                      : "bg-surface-secondary text-text-muted border border-border-subtle"
+                  }`}
+                >
                   {recordedEventsCount}
                 </span>
               )}
@@ -234,21 +260,19 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {appMode === 'editor' && (
+        {appMode === "editor" && (
           <div className="flex items-center gap-2 shrink-0">
             {/* File Operations Container Box */}
-
           </div>
         )}
       </div>
 
       {/* Right Actions: Load Tree, Record, Save, Load Session, Theme Toggle Switch */}
       <div className="flex items-center justify-end gap-1.5 shrink-0 whitespace-nowrap">
-        {appMode === 'monitor' && (
+        {appMode === "monitor" && (
           <>
             {/* Load Tree XML, Record, Save, Load Session in a distinct container box */}
             <div className="flex items-center gap-1 bg-surface-secondary/70 rounded-xl p-0.5 px-1">
-
               {!isRecording ? (
                 <button
                   onClick={() => onStartRecording(selectedTreeId || undefined)}
@@ -299,7 +323,7 @@ export const Header: React.FC<HeaderProps> = ({
           </>
         )}
 
-        {appMode === 'editor' && (
+        {appMode === "editor" && (
           <div className="flex items-center gap-1.5 ">
             {/* Tree Validation Status Button */}
 
@@ -329,10 +353,14 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
             {(() => {
               const activeTreeIssues = (editorValidationIssues || []).filter(
-                (issue) => !issue.treeId || issue.treeId === editorActiveTreeId
+                (issue) => !issue.treeId || issue.treeId === editorActiveTreeId,
               );
-              const errorCount = activeTreeIssues.filter((i) => i.severity === 'error').length;
-              const warningCount = activeTreeIssues.filter((i) => i.severity === 'warning').length;
+              const errorCount = activeTreeIssues.filter(
+                (i) => i.severity === "error",
+              ).length;
+              const warningCount = activeTreeIssues.filter(
+                (i) => i.severity === "warning",
+              ).length;
 
               if (errorCount > 0) {
                 return (
@@ -342,8 +370,10 @@ export const Header: React.FC<HeaderProps> = ({
                     title={`Tree has ${errorCount} error(s) and ${warningCount} warning(s). Click to view issues.`}
                   >
                     <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
-                    <span>{`${errorCount} ${errorCount === 1 ? 'Error' : 'Errors'}`}</span>
-                    {warningCount > 0 && <span className="opacity-80">({warningCount}w)</span>}
+                    <span>{`${errorCount} ${errorCount === 1 ? "Error" : "Errors"}`}</span>
+                    {warningCount > 0 && (
+                      <span className="opacity-80">({warningCount}w)</span>
+                    )}
                   </button>
                 );
               }
@@ -356,7 +386,7 @@ export const Header: React.FC<HeaderProps> = ({
                     title={`Tree has ${warningCount} warning(s). Click to view issues.`}
                   >
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>{`${warningCount} ${warningCount === 1 ? 'Warning' : 'Warnings'}`}</span>
+                    <span>{`${warningCount} ${warningCount === 1 ? "Warning" : "Warnings"}`}</span>
                   </button>
                 );
               }
@@ -380,9 +410,10 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Download className="w-3.5 h-3.5 text-accent-primary shrink-0" />
               <span>Download</span>
-              {editorIsDirty && <span className="w-1.5 h-1.5 rounded-full bg-accent-primary shrink-0" />}
+              {editorIsDirty && (
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-primary shrink-0" />
+              )}
             </button>
-
 
             {/* View Raw XML */}
             <button
@@ -413,7 +444,6 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
           </div>
-
         )}
 
         {/* Settings Button & Popover */}
@@ -421,15 +451,18 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => setIsSettingsOpen((prev) => !prev)}
-            className={`h-7 w-7 flex items-center justify-center rounded-lg border transition-all cursor-pointer shadow-2xs active:scale-95 ${isSettingsOpen
-              ? 'bg-accent-primary text-white border-accent-border shadow-sm'
-              : 'bg-surface-primary hover:bg-surface-hover text-text-secondary hover:text-text-primary border-border-medium hover:border-border-strong'
-              }`}
+            className={`h-7 w-7 flex items-center justify-center rounded-lg border transition-all cursor-pointer shadow-2xs active:scale-95 ${
+              isSettingsOpen
+                ? "bg-accent-primary text-white border-accent-border shadow-sm"
+                : "bg-surface-primary hover:bg-surface-hover text-text-secondary hover:text-text-primary border-border-medium hover:border-border-strong"
+            }`}
             title="Settings"
             aria-label="Settings"
             aria-expanded={isSettingsOpen}
           >
-            <Settings className={`w-3.5 h-3.5 ${isSettingsOpen ? 'text-white' : 'text-text-secondary'} shrink-0`} />
+            <Settings
+              className={`w-3.5 h-3.5 ${isSettingsOpen ? "text-white" : "text-text-secondary"} shrink-0`}
+            />
           </button>
 
           <SettingsPopover
@@ -437,7 +470,10 @@ export const Header: React.FC<HeaderProps> = ({
             onClose={() => setIsSettingsOpen(false)}
             liveStatusDisplayMode={liveStatusDisplayMode}
             onLiveStatusDisplayModeChange={onLiveStatusDisplayModeChange}
-            showLiveMonitoring={appMode === 'monitor' && Boolean(onLiveStatusDisplayModeChange || liveStatusDisplayMode)}
+            showLiveMonitoring={
+              appMode === "monitor" &&
+              Boolean(onLiveStatusDisplayModeChange || liveStatusDisplayMode)
+            }
           />
         </div>
       </div>

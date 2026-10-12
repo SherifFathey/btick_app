@@ -5,10 +5,8 @@ import {
   RecordingSession,
   RecordingSnapshot,
   TransitionEvent,
-} from '../../types/bt';
-import {
-  RecordingStorageRecord,
-} from './recordingStorage';
+} from "../../types/bt";
+import { RecordingStorageRecord } from "./recordingStorage";
 
 const cloneTrees = (trees: BTTreeModel[]): BTTreeModel[] =>
   trees.map((tree) => ({
@@ -29,13 +27,15 @@ const cloneTrees = (trees: BTTreeModel[]): BTTreeModel[] =>
     })),
   }));
 
-const buildNodeExecutions = (events: TransitionEvent[]): RecordedNodeExecution[] => {
+const buildNodeExecutions = (
+  events: TransitionEvent[],
+): RecordedNodeExecution[] => {
   const active = new Map<string, RecordedNodeExecution>();
   const executions: RecordedNodeExecution[] = [];
 
   events.forEach((event, eventIndex) => {
     const key = `${event.tree_id}::${event.uid}::${event.node_id}`;
-    if (event.status === 'RUNNING') {
+    if (event.status === "RUNNING") {
       if (!active.has(key)) {
         active.set(key, {
           tree_id: event.tree_id,
@@ -51,9 +51,9 @@ const buildNodeExecutions = (events: TransitionEvent[]): RecordedNodeExecution[]
     }
 
     if (
-      event.status !== 'SUCCESS' &&
-      event.status !== 'FAILURE' &&
-      event.status !== 'IDLE'
+      event.status !== "SUCCESS" &&
+      event.status !== "FAILURE" &&
+      event.status !== "IDLE"
     ) {
       return;
     }
@@ -82,22 +82,18 @@ const buildNodeExecutions = (events: TransitionEvent[]): RecordedNodeExecution[]
 export const compactRecordingRecords = (
   records: Iterable<RecordingStorageRecord>,
 ): RecordingSession | null => {
-  let header:
-    | Extract<RecordingStorageRecord, { kind: 'header' }>
-    | undefined;
-  let footer:
-    | Extract<RecordingStorageRecord, { kind: 'footer' }>
-    | undefined;
+  let header: Extract<RecordingStorageRecord, { kind: "header" }> | undefined;
+  let footer: Extract<RecordingStorageRecord, { kind: "footer" }> | undefined;
   const events: TransitionEvent[] = [];
   const seenEventKeys = new Set<string>();
   const snapshots: RecordingSnapshot[] = [];
 
   for (const record of records) {
     switch (record.kind) {
-      case 'header':
+      case "header":
         header = record;
         break;
-      case 'event':
+      case "event":
         {
           const event = { ...record.event };
           const eventKey = JSON.stringify(event);
@@ -107,20 +103,20 @@ export const compactRecordingRecords = (
           }
         }
         break;
-      case 'snapshot':
+      case "snapshot":
         snapshots.push({
           ...record.snapshot,
           trees: cloneTrees(record.snapshot.trees),
         });
         break;
-      case 'footer':
+      case "footer":
         footer = record;
         break;
     }
   }
 
   if (!header) {
-    throw new Error('Recording storage is missing its header record');
+    throw new Error("Recording storage is missing its header record");
   }
   if (header.initialTrees.length === 0 && events.length === 0) {
     return null;

@@ -1,4 +1,4 @@
-import { NodeCategory } from '../shared/types/btCategory';
+import { NodeCategory } from "../shared/types/btCategory";
 
 export type BTEditorNodeCategory = NodeCategory;
 
@@ -56,7 +56,7 @@ export interface BehaviorTreeDocument {
   fileName?: string;
 }
 
-export type ValidationSeverity = 'error' | 'warning';
+export type ValidationSeverity = "error" | "warning";
 
 export interface ValidationIssue {
   id: string;

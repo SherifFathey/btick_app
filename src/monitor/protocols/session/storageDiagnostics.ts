@@ -1,5 +1,5 @@
-import { ProtocolSessionState } from '../types';
-import { SessionStore } from './sessionStore';
+import { ProtocolSessionState } from "../types";
+import { SessionStore } from "./sessionStore";
 
 export interface StorageDiagnosticsMetrics {
   heapUsed: string;
@@ -20,14 +20,22 @@ export interface StorageDiagnosticsMetrics {
 }
 
 const formatBytes = (bytes: number): string => {
-  if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
+  if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export const getHeapUsage = (): { heapUsed: string; heapTotal: string; rawHeapUsed: number; rawHeapTotal: number } => {
-  if (typeof process !== 'undefined' && typeof process.memoryUsage === 'function') {
+export const getHeapUsage = (): {
+  heapUsed: string;
+  heapTotal: string;
+  rawHeapUsed: number;
+  rawHeapTotal: number;
+} => {
+  if (
+    typeof process !== "undefined" &&
+    typeof process.memoryUsage === "function"
+  ) {
     const mem = process.memoryUsage();
     return {
       heapUsed: formatBytes(mem.heapUsed),
@@ -37,7 +45,7 @@ export const getHeapUsage = (): { heapUsed: string; heapTotal: string; rawHeapUs
     };
   }
 
-  if (typeof window !== 'undefined' && (window.performance as any)?.memory) {
+  if (typeof window !== "undefined" && (window.performance as any)?.memory) {
     const mem = (window.performance as any).memory;
     return {
       heapUsed: formatBytes(mem.usedJSHeapSize),
@@ -48,8 +56,8 @@ export const getHeapUsage = (): { heapUsed: string; heapTotal: string; rawHeapUs
   }
 
   return {
-    heapUsed: 'N/A',
-    heapTotal: 'N/A',
+    heapUsed: "N/A",
+    heapTotal: "N/A",
     rawHeapUsed: 0,
     rawHeapTotal: 0,
   };
@@ -57,7 +65,7 @@ export const getHeapUsage = (): { heapUsed: string; heapTotal: string; rawHeapUs
 
 export async function collectStorageDiagnostics(
   sessions: Record<string, ProtocolSessionState>,
-  treeStores: Map<string, { store: SessionStore } | SessionStore>
+  treeStores: Map<string, { store: SessionStore } | SessionStore>,
 ): Promise<StorageDiagnosticsMetrics> {
   const heap = getHeapUsage();
 
@@ -101,8 +109,8 @@ export async function collectStorageDiagnostics(
   let diskSnapshotCount = 0;
 
   for (const entry of treeStores.values()) {
-    const store = 'store' in entry ? entry.store : entry;
-    if (store && typeof store.getRecordCounts === 'function') {
+    const store = "store" in entry ? entry.store : entry;
+    if (store && typeof store.getRecordCounts === "function") {
       try {
         const counts = await store.getRecordCounts();
         diskEventCount += counts.events;
@@ -110,7 +118,10 @@ export async function collectStorageDiagnostics(
         diskKeyframeCount += counts.snapshots;
         diskExecutionCount += counts.executions;
       } catch (err) {
-        console.warn('[BTick][StorageDiagnostics] Error querying store counts:', err);
+        console.warn(
+          "[BTick][StorageDiagnostics] Error querying store counts:",
+          err,
+        );
       }
     }
   }

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Code2, Copy, Check, Download } from 'lucide-react';
+import React, { useState } from "react";
+import { X, Code2, Copy, Check, Download } from "lucide-react";
 
 interface BTEditorRawXmlModalProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface BTEditorRawXmlModalProps {
 export const BTEditorRawXmlModal: React.FC<BTEditorRawXmlModalProps> = ({
   isOpen,
   xmlContent,
-  fileName = 'behavior_tree.xml',
+  fileName = "behavior_tree.xml",
   onClose,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -25,9 +25,11 @@ export const BTEditorRawXmlModal: React.FC<BTEditorRawXmlModalProps> = ({
   };
 
   const handleDownload = () => {
-    const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
+    const blob = new Blob([xmlContent], {
+      type: "application/xml;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
     a.click();
@@ -36,7 +38,7 @@ export const BTEditorRawXmlModal: React.FC<BTEditorRawXmlModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-      <div 
+      <div
         className="bg-surface-primary rounded-2xl shadow-2xl border border-border-medium max-w-3xl w-full overflow-hidden animate-in zoom-in-95 select-text text-text-primary font-sans flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -56,8 +58,12 @@ export const BTEditorRawXmlModal: React.FC<BTEditorRawXmlModalProps> = ({
               onClick={handleCopy}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-primary hover:bg-surface-hover border border-border-medium text-xs font-semibold text-text-primary transition-all cursor-pointer shadow-2xs active:scale-95"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied' : 'Copy XML'}</span>
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-emerald-500" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+              <span>{copied ? "Copied" : "Copy XML"}</span>
             </button>
             <button
               onClick={handleDownload}

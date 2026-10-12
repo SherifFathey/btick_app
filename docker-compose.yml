@@ -16,10 +16,6 @@
 # ==============================================================================
 
 services:
-  # ----------------------------------------------------------------------------
-  # Option A (Recommended): Host Networking Mode
-  # Required for automatic ROS 2 DDS peer discovery (Zenoh / CycloneDDS / FastDDS).
-  # ----------------------------------------------------------------------------
   btick:
     image: sheriffathey/btick:v0.0.19
     network_mode: host
@@ -45,7 +41,7 @@ services:
       - ${XDG_RUNTIME_DIR:-/run/user}:${XDG_RUNTIME_DIR:-/run/user}:ro
 
 
-      
+
   # ----------------------------------------------------------------------------
   # Option B: Bridge Networking Mode (Alternative when host mode is unavailable)
   # NOTE: ROS 2 DDS multicast peer discovery across machines may NOT work in bridge

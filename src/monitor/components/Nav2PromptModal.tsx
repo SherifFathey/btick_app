@@ -1,6 +1,13 @@
-import React, { useRef } from 'react';
-import { Compass, FileCode, X, Sparkles, HelpCircle, CheckCircle2 } from 'lucide-react';
-import { NAV2_DEFAULT_SAMPLE_XML } from '../constants/nav2Sample';
+import React, { useRef } from "react";
+import {
+  Compass,
+  FileCode,
+  X,
+  Sparkles,
+  HelpCircle,
+  CheckCircle2,
+} from "lucide-react";
+import { NAV2_DEFAULT_SAMPLE_XML } from "../constants/nav2Sample";
 
 interface Nav2PromptModalProps {
   isOpen: boolean;
@@ -29,18 +36,18 @@ export const Nav2PromptModal: React.FC<Nav2PromptModalProps> = ({
         }
       };
       reader.readAsText(file);
-      e.target.value = '';
+      e.target.value = "";
     }
   };
 
   const handleLoadSample = () => {
-    onLoadTreeXml(NAV2_DEFAULT_SAMPLE_XML, 'nav2_default_navigation.xml');
+    onLoadTreeXml(NAV2_DEFAULT_SAMPLE_XML, "nav2_default_navigation.xml");
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-      <div 
+      <div
         className="bg-surface-primary rounded-2xl shadow-2xl border border-border-medium max-w-lg w-full overflow-hidden animate-in zoom-in-95 select-text text-text-primary"
         onClick={(e) => e.stopPropagation()}
       >
@@ -51,8 +58,12 @@ export const Nav2PromptModal: React.FC<Nav2PromptModalProps> = ({
               <Compass className="w-6 h-6 text-accent-primary" />
             </div>
             <div>
-              <h2 className="text-base font-bold tracking-wide text-text-primary">Nav2 Protocol Selected</h2>
-              <p className="text-xs text-text-secondary font-mono">ROS 2 /behavior_tree_log Live Bridge</p>
+              <h2 className="text-base font-bold tracking-wide text-text-primary">
+                Nav2 Protocol Selected
+              </h2>
+              <p className="text-xs text-text-secondary font-mono">
+                ROS 2 /behavior_tree_log Live Bridge
+              </p>
             </div>
           </div>
           <button
@@ -69,13 +80,26 @@ export const Nav2PromptModal: React.FC<Nav2PromptModalProps> = ({
           <div className="bg-accent-subtle/50 border border-accent-border rounded-lg p-4 text-xs text-text-secondary space-y-2 shadow-2xs">
             <div className="flex items-center gap-2 font-bold text-accent-primary">
               <HelpCircle className="w-4 h-4" />
-              <span>Why Load   an XML Behavior Tree?</span>
+              <span>Why Load an XML Behavior Tree?</span>
             </div>
             <p className="leading-relaxed">
-              ROS 2 Nav2 publishes real-time node execution status changes over the <code className="bg-surface-primary px-1.5 py-0.5 rounded-md border border-border-medium font-mono text-[11px] text-accent-primary font-bold">/behavior_tree_log</code> topic, but does not transmit the full Behavior Tree structure.
+              ROS 2 Nav2 publishes real-time node execution status changes over
+              the{" "}
+              <code className="bg-surface-primary px-1.5 py-0.5 rounded-md border border-border-medium font-mono text-[11px] text-accent-primary font-bold">
+                /behavior_tree_log
+              </code>{" "}
+              topic, but does not transmit the full Behavior Tree structure.
             </p>
             <p className="leading-relaxed">
-              Loading your robot's Nav2 XML tree enables BTick to <strong>match incoming live status transitions</strong> directly to tree nodes and render live color indicators (<span className="text-state-running-text font-bold">RUNNING</span>, <span className="text-state-success-text font-bold">SUCCESS</span>, <span className="text-state-failure-text font-bold">FAILURE</span>) in real time!
+              Loading your robot's Nav2 XML tree enables BTick to{" "}
+              <strong>match incoming live status transitions</strong> directly
+              to tree nodes and render live color indicators (
+              <span className="text-state-running-text font-bold">RUNNING</span>
+              ,{" "}
+              <span className="text-state-success-text font-bold">SUCCESS</span>
+              ,{" "}
+              <span className="text-state-failure-text font-bold">FAILURE</span>
+              ) in real time!
             </p>
           </div>
 
@@ -98,11 +122,17 @@ export const Nav2PromptModal: React.FC<Nav2PromptModalProps> = ({
                   <FileCode className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-white">Browse & Load Nav2 XML File</div>
-                  <div className="text-[11px] text-white/80">Select your robot's custom navigation .xml tree</div>
+                  <div className="text-xs font-bold text-white">
+                    Browse & Load Nav2 XML File
+                  </div>
+                  <div className="text-[11px] text-white/80">
+                    Select your robot's custom navigation .xml tree
+                  </div>
                 </div>
               </div>
-              <span className="text-xs font-bold px-3 py-1 bg-white/20 rounded-lg">Load File</span>
+              <span className="text-xs font-bold px-3 py-1 bg-white/20 rounded-lg">
+                Load File
+              </span>
             </button>
 
             {/* Action Choice 2: Load Standard Sample Tree */}
@@ -115,11 +145,17 @@ export const Nav2PromptModal: React.FC<Nav2PromptModalProps> = ({
                   <Sparkles className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-text-primary">Load Standard Nav2 Tree (Sample)</div>
-                  <div className="text-[11px] text-text-muted">Instant setup with NavigateToPose with Replanning & Recovery</div>
+                  <div className="text-xs font-bold text-text-primary">
+                    Load Standard Nav2 Tree (Sample)
+                  </div>
+                  <div className="text-[11px] text-text-muted">
+                    Instant setup with NavigateToPose with Replanning & Recovery
+                  </div>
                 </div>
               </div>
-              <span className="text-xs font-semibold px-3 py-1 bg-surface-primary text-text-secondary rounded-lg border border-border-subtle shadow-2xs">Load Sample</span>
+              <span className="text-xs font-semibold px-3 py-1 bg-surface-primary text-text-secondary rounded-lg border border-border-subtle shadow-2xs">
+                Load Sample
+              </span>
             </button>
           </div>
         </div>
@@ -141,4 +177,3 @@ export const Nav2PromptModal: React.FC<Nav2PromptModalProps> = ({
     </div>
   );
 };
-

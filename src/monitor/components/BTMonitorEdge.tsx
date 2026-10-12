@@ -94,16 +94,8 @@ export const BTMonitorEdge: React.FC<EdgeProps> = ({
         className={animated ? "animated" : undefined}
         style={{
           ...style,
-          stroke: selected
-            ? "#0284c7"
-            : isHovered
-              ? "#38bdf8"
-              : baseStroke,
-          strokeWidth: selected
-            ? 3.5
-            : isHovered
-              ? 2.5
-              : baseStrokeWidth,
+          stroke: selected ? "#0284c7" : isHovered ? "#38bdf8" : baseStroke,
+          strokeWidth: selected ? 3.5 : isHovered ? 2.5 : baseStrokeWidth,
           filter: selected
             ? "drop-shadow(0 0 6px rgba(2,132,199,0.7))"
             : isHovered
@@ -142,4 +134,3 @@ export const BTMonitorEdge: React.FC<EdgeProps> = ({
     </g>
   );
 };
-

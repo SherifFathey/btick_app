@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 HAVE_MSGPACK = False
 try:
     import msgpack
+
     HAVE_MSGPACK = True
 except ImportError:
     pass
@@ -38,24 +39,25 @@ except ImportError:
 # ==============================================================================
 GROOT2_PROTOCOL_ID = 2
 
+
 class Groot2RequestType:
-    FULLTREE = ord('T')
-    STATUS = ord('S')
-    BLACKBOARD = ord('B')
-    HOOK_INSERT = ord('I')
-    HOOK_REMOVE = ord('R')
-    BREAKPOINT_REACHED = ord('N')
-    BREAKPOINT_UNLOCK = ord('U')
-    REMOVE_ALL_HOOKS = ord('A')
-    HOOKS_DUMP = ord('D')
-    DISABLE_ALL_HOOKS = ord('X')
-    TOGGLE_RECORDING = ord('r')
-    GET_TRANSITIONS = ord('t')
+    FULLTREE = ord("T")
+    STATUS = ord("S")
+    BLACKBOARD = ord("B")
+    HOOK_INSERT = ord("I")
+    HOOK_REMOVE = ord("R")
+    BREAKPOINT_REACHED = ord("N")
+    BREAKPOINT_UNLOCK = ord("U")
+    REMOVE_ALL_HOOKS = ord("A")
+    HOOKS_DUMP = ord("D")
+    DISABLE_ALL_HOOKS = ord("X")
+    TOGGLE_RECORDING = ord("r")
+    GET_TRANSITIONS = ord("t")
 
 
 def decode_groot2_blackboard(payload: bytes) -> dict:
     """Decodes MessagePack or JSON payload returned by Groot2 Blackboard query."""
-    if not payload or payload == b'\xc0':
+    if not payload or payload == b"\xc0":
         return {}
     if HAVE_MSGPACK:
         try:
@@ -65,8 +67,8 @@ def decode_groot2_blackboard(payload: bytes) -> dict:
         except Exception:
             pass
     try:
-        text = payload.decode('utf-8', errors='ignore').strip()
-        if text.startswith('{'):
+        text = payload.decode("utf-8", errors="ignore").strip()
+        if text.startswith("{"):
             data = json.loads(text)
             if isinstance(data, dict):
                 return data
@@ -89,12 +91,12 @@ def flatten_blackboard_dict(data: dict) -> dict:
         return flat
 
     def unbox(val):
-        if isinstance(val, dict) and 'value' in val and len(val) <= 3:
-            return val['value']
+        if isinstance(val, dict) and "value" in val and len(val) <= 3:
+            return val["value"]
         return val
 
     for top_k, top_v in data.items():
-        if isinstance(top_v, dict) and not ('value' in top_v and len(top_v) <= 3):
+        if isinstance(top_v, dict) and not ("value" in top_v and len(top_v) <= 3):
             for sub_k, sub_v in top_v.items():
                 unboxed_sub = unbox(sub_v)
                 flat[sub_k] = unboxed_sub
@@ -108,7 +110,7 @@ def serialize_groot2_header(req_type: int, unique_id: int = None) -> bytes:
     if unique_id is None:
         unique_id = random.randint(1, 0xFFFFFFFE)
     # protocol (1 byte), type (1 byte), unique_id (4 bytes, little endian)
-    return struct.pack('<BBI', GROOT2_PROTOCOL_ID, req_type, unique_id)
+    return struct.pack("<BBI", GROOT2_PROTOCOL_ID, req_type, unique_id)
 
 
 # ==============================================================================
@@ -122,16 +124,16 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
         print(f"[BT Common] XML parse error: {e}", file=sys.stderr)
         return {}
 
-    main_tree_id = root.attrib.get('main_tree_to_execute', '')
-    bt_elements = root.findall('.//BehaviorTree')
+    main_tree_id = root.attrib.get("main_tree_to_execute", "")
+    bt_elements = root.findall(".//BehaviorTree")
     if not bt_elements:
         return {}
 
     bt_fullpath_map = {}
     bt_id_map = {}
     for bt in bt_elements:
-        fp = bt.attrib.get('_fullpath')
-        bid = bt.attrib.get('ID')
+        fp = bt.attrib.get("_fullpath")
+        bid = bt.attrib.get("ID")
         if fp:
             bt_fullpath_map[fp] = bt
         if bid and bid not in bt_id_map:
@@ -141,7 +143,7 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
     if main_tree_id and main_tree_id in bt_id_map:
         target_bt = bt_id_map[main_tree_id]
 
-    tree_id = target_bt.attrib.get('ID', tree_name_override or 'MainTree')
+    tree_id = target_bt.attrib.get("ID", tree_name_override or "MainTree")
     tree_name = tree_name_override or tree_id
 
     nodes = []
@@ -150,40 +152,62 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
     used_uids = set()
 
     control_tags = {
-        'Sequence', 'Fallback', 'Parallel', 'ReactiveSequence', 'ReactiveFallback',
-        'SequenceWithMemory', 'PipelineSequence', 'RecoveryNode', 'RoundRobin',
-        'IfThenElse', 'Switch2', 'Switch3', 'WhileDoElse'
+        "Sequence",
+        "Fallback",
+        "Parallel",
+        "ReactiveSequence",
+        "ReactiveFallback",
+        "SequenceWithMemory",
+        "PipelineSequence",
+        "RecoveryNode",
+        "RoundRobin",
+        "IfThenElse",
+        "Switch2",
+        "Switch3",
+        "WhileDoElse",
     }
     decorator_tags = {
-        'Inverter', 'Repeat', 'RetryUntilSuccessful', 'Timeout', 'ForceSuccess',
-        'ForceFailure', 'RateController', 'Delay', 'KeepRunningUntilFailure',
-        'Precondition', 'ConsumeAsset', 'LoopFast'
+        "Inverter",
+        "Repeat",
+        "RetryUntilSuccessful",
+        "Timeout",
+        "ForceSuccess",
+        "ForceFailure",
+        "RateController",
+        "Delay",
+        "KeepRunningUntilFailure",
+        "Precondition",
+        "ConsumeAsset",
+        "LoopFast",
     }
 
     def determine_category(tag: str, is_subtree: bool) -> str:
-        if is_subtree or 'SubTree' in tag:
-            return 'SubTree'
+        if is_subtree or "SubTree" in tag:
+            return "SubTree"
         if tag in control_tags:
-            return 'Control'
+            return "Control"
         if tag in decorator_tags:
-            return 'Decorator'
-        if (tag.startswith(('Check', 'Is', 'Verify', 'Would', 'Has')) or
-            'Condition' in tag or tag in {'AlwaysFailure', 'AlwaysSuccess', 'GoalReached'}):
-            return 'Condition'
-        return 'Action'
+            return "Decorator"
+        if (
+            tag.startswith(("Check", "Is", "Verify", "Would", "Has"))
+            or "Condition" in tag
+            or tag in {"AlwaysFailure", "AlwaysSuccess", "GoalReached"}
+        ):
+            return "Condition"
+        return "Action"
 
     def traverse(elem: ET.Element, parent_id: str, ancestors: tuple = ()):
         nonlocal counter
         tag = elem.tag
-        is_subtree = (tag == 'SubTree' or tag == 'SubTreePlus' or 'SubTree' in tag)
-        name_attr = elem.attrib.get('name', '')
-        id_attr = elem.attrib.get('ID', '') or elem.attrib.get('subtree_id', '')
-        fullpath_attr = elem.attrib.get('_fullpath', '')
+        is_subtree = tag == "SubTree" or tag == "SubTreePlus" or "SubTree" in tag
+        name_attr = elem.attrib.get("name", "")
+        id_attr = elem.attrib.get("ID", "") or elem.attrib.get("subtree_id", "")
+        fullpath_attr = elem.attrib.get("_fullpath", "")
         display_name = name_attr or id_attr or tag
 
-        if '_uid' in elem.attrib:
+        if "_uid" in elem.attrib:
             try:
-                raw_uid = int(elem.attrib['_uid'])
+                raw_uid = int(elem.attrib["_uid"])
                 if raw_uid not in used_uids:
                     uid = raw_uid
                     used_uids.add(uid)
@@ -212,29 +236,29 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
         ports = {}
         attributes = {}
         for k, v in elem.attrib.items():
-            if k in {'name', '_uid', '_fullpath'}:
+            if k in {"name", "_uid", "_fullpath"}:
                 continue
-            if v.startswith('{') and v.endswith('}'):
+            if v.startswith("{") and v.endswith("}"):
                 ports[k] = v
                 raw_key = v[1:-1].strip()
                 if raw_key and raw_key not in blackboard:
-                    blackboard[raw_key] = 'unset'
+                    blackboard[raw_key] = "unset"
             else:
                 attributes[k] = v
 
         children_ids = []
 
         node_data = {
-            'id': node_id,
-            'uid': uid,
-            'name': display_name,
-            'type': tag if not is_subtree else 'SubTree',
-            'category': category,
-            'parent_id': parent_id,
-            'children_ids': children_ids,
-            'ports': ports,
-            'attributes': attributes,
-            'status': 'IDLE'
+            "id": node_id,
+            "uid": uid,
+            "name": display_name,
+            "type": tag if not is_subtree else "SubTree",
+            "category": category,
+            "parent_id": parent_id,
+            "children_ids": children_ids,
+            "ports": ports,
+            "attributes": attributes,
+            "status": "IDLE",
         }
         nodes.append(node_data)
 
@@ -250,13 +274,21 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
                 sub_key = fullpath_attr or id_attr or display_name
                 if sub_key not in ancestors:
                     for child in sub_bt:
-                        if isinstance(child.tag, str) and not child.tag.endswith('Port') and not child.tag.endswith('port'):
+                        if (
+                            isinstance(child.tag, str)
+                            and not child.tag.endswith("Port")
+                            and not child.tag.endswith("port")
+                        ):
                             cid = traverse(child, node_id, ancestors + (sub_key,))
                             if cid:
                                 children_ids.append(cid)
         else:
             for child in elem:
-                if isinstance(child.tag, str) and not child.tag.endswith('Port') and not child.tag.endswith('port'):
+                if (
+                    isinstance(child.tag, str)
+                    and not child.tag.endswith("Port")
+                    and not child.tag.endswith("port")
+                ):
                     cid = traverse(child, node_id, ancestors)
                     if cid:
                         children_ids.append(cid)
@@ -265,20 +297,24 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
 
     # Create root hierarchy
     for child in target_bt:
-        if isinstance(child.tag, str) and not child.tag.endswith('Port') and not child.tag.endswith('port'):
-            traverse(child, '', (tree_id,))
+        if (
+            isinstance(child.tag, str)
+            and not child.tag.endswith("Port")
+            and not child.tag.endswith("port")
+        ):
+            traverse(child, "", (tree_id,))
 
-    root_node_id = nodes[0]['id'] if nodes else ''
+    root_node_id = nodes[0]["id"] if nodes else ""
 
     return {
-        'type': 'tree_created',
-        'tree_id': tree_id,
-        'tree_name': tree_name,
-        'root_node_id': root_node_id,
-        'nodes': nodes,
-        'blackboard': blackboard,
-        'status': 'IDLE',
-        'timestamp': time.time()
+        "type": "tree_created",
+        "tree_id": tree_id,
+        "tree_name": tree_name,
+        "root_node_id": root_node_id,
+        "nodes": nodes,
+        "blackboard": blackboard,
+        "status": "IDLE",
+        "timestamp": time.time(),
     }
 
 
@@ -286,7 +322,13 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
 # Standalone RFC 6455 Pure-Python WebSocket Server
 # ==============================================================================
 class StandaloneWebSocketServer:
-    def __init__(self, host: str = "0.0.0.0", port: int = 8080, on_client_message=None, on_client_connect=None):
+    def __init__(
+        self,
+        host: str = "0.0.0.0",
+        port: int = 8080,
+        on_client_message=None,
+        on_client_connect=None,
+    ):
         self.host = host
         self.port = port
         self.on_client_message = on_client_message
@@ -311,7 +353,9 @@ class StandaloneWebSocketServer:
         while self.running:
             try:
                 client_sock, addr = self.server_socket.accept()
-                threading.Thread(target=self._handle_client, args=(client_sock,), daemon=True).start()
+                threading.Thread(
+                    target=self._handle_client, args=(client_sock,), daemon=True
+                ).start()
             except Exception:
                 break
 
@@ -326,7 +370,7 @@ class StandaloneWebSocketServer:
                 req += chunk
 
             headers = {}
-            lines = req.decode('utf-8', errors='ignore').split("\r\n")
+            lines = req.decode("utf-8", errors="ignore").split("\r\n")
             for line in lines[1:]:
                 if ": " in line:
                     k, v = line.split(": ", 1)
@@ -338,7 +382,9 @@ class StandaloneWebSocketServer:
                 return
 
             guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-            accept_key = base64.b64encode(hashlib.sha1((sec_key + guid).encode()).digest()).decode()
+            accept_key = base64.b64encode(
+                hashlib.sha1((sec_key + guid).encode()).digest()
+            ).decode()
 
             handshake = (
                 "HTTP/1.1 101 Switching Protocols\r\n"
@@ -355,21 +401,23 @@ class StandaloneWebSocketServer:
                 try:
                     self.on_client_connect(sock)
                 except Exception as e:
-                    print(f"[WebSocket] Error in on_client_connect: {e}", file=sys.stderr)
+                    print(
+                        f"[WebSocket] Error in on_client_connect: {e}", file=sys.stderr
+                    )
 
             while self.running:
                 data = sock.recv(2)
                 if not data:
                     break
                 byte1, byte2 = data[0], data[1]
-                opcode = byte1 & 0x0f
+                opcode = byte1 & 0x0F
                 is_masked = (byte2 & 0x80) != 0
-                payload_len = byte2 & 0x7f
+                payload_len = byte2 & 0x7F
 
-                if opcode == 8: # Close frame
+                if opcode == 8:  # Close frame
                     break
-                elif opcode == 9: # Ping
-                    sock.sendall(bytes([0x8a, 0x00])) # Pong
+                elif opcode == 9:  # Ping
+                    sock.sendall(bytes([0x8A, 0x00]))  # Pong
                     continue
 
                 if payload_len == 126:
@@ -391,13 +439,16 @@ class StandaloneWebSocketServer:
                     for i in range(len(payload)):
                         payload[i] ^= mask_key[i % 4]
 
-                if opcode == 1: # Text frame
-                    msg_str = payload.decode('utf-8', errors='ignore')
+                if opcode == 1:  # Text frame
+                    msg_str = payload.decode("utf-8", errors="ignore")
                     if self.on_client_message:
                         try:
                             self.on_client_message(msg_str)
                         except Exception as e:
-                            print(f"[WebSocket] Message handler error: {e}", file=sys.stderr)
+                            print(
+                                f"[WebSocket] Message handler error: {e}",
+                                file=sys.stderr,
+                            )
 
         except Exception:
             pass
@@ -411,7 +462,7 @@ class StandaloneWebSocketServer:
 
     def send_to_sock(self, sock: socket.socket, message: str):
         try:
-            payload = message.encode('utf-8')
+            payload = message.encode("utf-8")
             length = len(payload)
             frame = bytearray([0x81])
             if length <= 125:
@@ -463,9 +514,9 @@ class SPAHTTPHandler(SimpleHTTPRequestHandler):
             pass
 
     def _send_cors_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', '*')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
 
     def do_OPTIONS(self):
         try:
@@ -478,42 +529,46 @@ class SPAHTTPHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         try:
             parsed_path = urlparse(self.path).path
-            file_path = os.path.join(self.dist_dir, parsed_path.lstrip('/'))
+            file_path = os.path.join(self.dist_dir, parsed_path.lstrip("/"))
 
-            if parsed_path in ('/config.json', '/api/config'):
+            if parsed_path in ("/config.json", "/api/config"):
                 self.send_response(200)
-                self.send_header('Content-type', 'application/json')
+                self.send_header("Content-type", "application/json")
                 self._send_cors_headers()
-                self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
-                self.send_header('Pragma', 'no-cache')
+                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+                self.send_header("Pragma", "no-cache")
                 self.end_headers()
                 info = self.status_provider() if self.status_provider else {}
                 config_data = {
-                    'wsPort': info.get('ws_port', 8080),
-                    'httpPort': info.get('http_port', 3000),
-                    'zmqPort': info.get('zmq_port', info.get('groot_port', 1667)),
+                    "wsPort": info.get("ws_port", 8080),
+                    "httpPort": info.get("http_port", 3000),
+                    "zmqPort": info.get("zmq_port", info.get("groot_port", 1667)),
                 }
-                self.wfile.write(json.dumps(config_data).encode('utf-8'))
+                self.wfile.write(json.dumps(config_data).encode("utf-8"))
                 return
 
-            if parsed_path.startswith('/api/status'):
+            if parsed_path.startswith("/api/status"):
                 self.send_response(200)
-                self.send_header('Content-type', 'application/json')
+                self.send_header("Content-type", "application/json")
                 self._send_cors_headers()
                 self.end_headers()
-                info = self.status_provider() if self.status_provider else {'status': 'ok'}
-                self.wfile.write(json.dumps(info).encode('utf-8'))
+                info = (
+                    self.status_provider() if self.status_provider else {"status": "ok"}
+                )
+                self.wfile.write(json.dumps(info).encode("utf-8"))
                 return
 
             if not os.path.exists(file_path) or os.path.isdir(file_path):
-                index_path = os.path.join(self.dist_dir, 'index.html')
+                index_path = os.path.join(self.dist_dir, "index.html")
                 if os.path.exists(index_path):
                     self.send_response(200)
-                    self.send_header('Content-type', 'text/html; charset=utf-8')
-                    self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
-                    self.send_header('Pragma', 'no-cache')
+                    self.send_header("Content-type", "text/html; charset=utf-8")
+                    self.send_header(
+                        "Cache-Control", "no-store, no-cache, must-revalidate"
+                    )
+                    self.send_header("Pragma", "no-cache")
                     self.end_headers()
-                    with open(index_path, 'rb') as f:
+                    with open(index_path, "rb") as f:
                         self.wfile.write(f.read())
                     return
 

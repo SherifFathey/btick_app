@@ -1,19 +1,19 @@
-import { BehaviorTreeDocument, BTEditorTree, BTEditorNode } from './types';
+import { BehaviorTreeDocument, BTEditorTree, BTEditorNode } from "./types";
 
 const escapeXmlAttr = (str: string): string => {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 };
 
 export const serializeDocumentToXml = (doc: BehaviorTreeDocument): string => {
-  const indent = (level: number) => '  '.repeat(level);
+  const indent = (level: number) => "  ".repeat(level);
   const lines: string[] = [];
 
   // 1. Root Opening
-  let rootAttrs = `BTCPP_format="${escapeXmlAttr(doc.formatVersion || '4')}"`;
+  let rootAttrs = `BTCPP_format="${escapeXmlAttr(doc.formatVersion || "4")}"`;
   if (doc.mainTreeId) {
     rootAttrs += ` main_tree_to_execute="${escapeXmlAttr(doc.mainTreeId)}"`;
   }
@@ -25,9 +25,10 @@ export const serializeDocumentToXml = (doc: BehaviorTreeDocument): string => {
   lines.push(`<root ${rootAttrs}>`);
 
   // 2. BehaviorTree Elements
-  const treeOrder = doc.treeOrder && doc.treeOrder.length > 0 
-    ? doc.treeOrder 
-    : Object.keys(doc.trees);
+  const treeOrder =
+    doc.treeOrder && doc.treeOrder.length > 0
+      ? doc.treeOrder
+      : Object.keys(doc.trees);
 
   treeOrder.forEach((treeId) => {
     const tree = doc.trees[treeId];
@@ -47,10 +48,14 @@ export const serializeDocumentToXml = (doc: BehaviorTreeDocument): string => {
         const node = tree.nodes[nodeId];
         if (!node) return;
 
-        const isSubTree = node.category === 'SubTree' || node.type === 'SubTree' || node.type === 'SubTreePlus';
-        const targetTreeId = node.attributes?.ID || (isSubTree ? node.name : undefined);
+        const isSubTree =
+          node.category === "SubTree" ||
+          node.type === "SubTree" ||
+          node.type === "SubTreePlus";
+        const targetTreeId =
+          node.attributes?.ID || (isSubTree ? node.name : undefined);
 
-        let attrStr = '';
+        let attrStr = "";
         if (targetTreeId) {
           attrStr += ` ID="${escapeXmlAttr(targetTreeId)}"`;
         }
@@ -61,7 +66,7 @@ export const serializeDocumentToXml = (doc: BehaviorTreeDocument): string => {
         // Custom XML attributes
         if (node.attributes) {
           Object.entries(node.attributes).forEach(([k, v]) => {
-            if (k === 'ID') return;
+            if (k === "ID") return;
             attrStr += ` ${k}="${escapeXmlAttr(v)}"`;
           });
         }
@@ -116,15 +121,19 @@ export const serializeDocumentToXml = (doc: BehaviorTreeDocument): string => {
         inputPorts.forEach((p) => {
           let pAttr = `name="${escapeXmlAttr(p.name)}"`;
           if (p.type) pAttr += ` type="${escapeXmlAttr(p.type)}"`;
-          if (p.defaultValue) pAttr += ` default="${escapeXmlAttr(p.defaultValue)}"`;
-          if (p.description) pAttr += ` description="${escapeXmlAttr(p.description)}"`;
+          if (p.defaultValue)
+            pAttr += ` default="${escapeXmlAttr(p.defaultValue)}"`;
+          if (p.description)
+            pAttr += ` description="${escapeXmlAttr(p.description)}"`;
           lines.push(`${indent(3)}<input_port ${pAttr}/>`);
         });
         outputPorts.forEach((p) => {
           let pAttr = `name="${escapeXmlAttr(p.name)}"`;
           if (p.type) pAttr += ` type="${escapeXmlAttr(p.type)}"`;
-          if (p.defaultValue) pAttr += ` default="${escapeXmlAttr(p.defaultValue)}"`;
-          if (p.description) pAttr += ` description="${escapeXmlAttr(p.description)}"`;
+          if (p.defaultValue)
+            pAttr += ` default="${escapeXmlAttr(p.defaultValue)}"`;
+          if (p.description)
+            pAttr += ` description="${escapeXmlAttr(p.description)}"`;
           lines.push(`${indent(3)}<output_port ${pAttr}/>`);
         });
         lines.push(`${indent(2)}</${model.category}>`);
@@ -136,7 +145,7 @@ export const serializeDocumentToXml = (doc: BehaviorTreeDocument): string => {
   }
 
   // 4. Root Closing
-  lines.push('</root>\n');
+  lines.push("</root>\n");
 
-  return lines.join('\n');
+  return lines.join("\n");
 };

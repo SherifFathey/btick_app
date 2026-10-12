@@ -1,18 +1,22 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  X, 
-  AlertTriangle, 
-  CheckCircle2, 
-  ArrowRight, 
-  GitBranch, 
-  Repeat, 
-  Zap, 
-  Layers, 
-  Info 
-} from 'lucide-react';
-import { BTEditorNode, BTEditorNodeCategory, BTNodeModelDefinition } from '../types';
-import { BUILTIN_NODE_DEFINITIONS, inferNodeCategory } from '../nodeLibrary';
-import { ChangeNodeTypeResolution } from '../documentModel';
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  X,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowRight,
+  GitBranch,
+  Repeat,
+  Zap,
+  Layers,
+  Info,
+} from "lucide-react";
+import {
+  BTEditorNode,
+  BTEditorNodeCategory,
+  BTNodeModelDefinition,
+} from "../types";
+import { BUILTIN_NODE_DEFINITIONS, inferNodeCategory } from "../nodeLibrary";
+import { ChangeNodeTypeResolution } from "../documentModel";
 
 interface BTEditorChangeTypeModalProps {
   isOpen: boolean;
@@ -20,27 +24,27 @@ interface BTEditorChangeTypeModalProps {
   treeNodes: Record<string, BTEditorNode>;
   customNodeModels?: Record<string, BTNodeModelDefinition>;
   onClose: () => void;
-  onApply: (nodeId: string, newType: string, resolution: ChangeNodeTypeResolution) => void;
+  onApply: (
+    nodeId: string,
+    newType: string,
+    resolution: ChangeNodeTypeResolution,
+  ) => void;
 }
 
-export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = ({
-  isOpen,
-  node,
-  treeNodes,
-  customNodeModels = {},
-  onClose,
-  onApply,
-}) => {
+export const BTEditorChangeTypeModal: React.FC<
+  BTEditorChangeTypeModalProps
+> = ({ isOpen, node, treeNodes, customNodeModels = {}, onClose, onApply }) => {
   if (!isOpen || !node) return null;
 
   const [selectedType, setSelectedType] = useState<string>(node.type);
-  const [resolution, setResolution] = useState<ChangeNodeTypeResolution>('keep_all');
+  const [resolution, setResolution] =
+    useState<ChangeNodeTypeResolution>("keep_all");
 
   // Reset state when node opens
   useEffect(() => {
     if (node) {
       setSelectedType(node.type);
-      setResolution('keep_all');
+      setResolution("keep_all");
     }
   }, [node]);
 
@@ -77,24 +81,34 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
   const currentCategory = node.category;
   const targetCategory = inferNodeCategory(selectedType);
   const childrenCount = node.children ? node.children.length : 0;
-  const firstChild = childrenCount > 0 && treeNodes[node.children[0]] ? treeNodes[node.children[0]] : null;
-  const firstChildName = firstChild ? (firstChild.name || firstChild.type) : 'Child 1';
+  const firstChild =
+    childrenCount > 0 && treeNodes[node.children[0]]
+      ? treeNodes[node.children[0]]
+      : null;
+  const firstChildName = firstChild
+    ? firstChild.name || firstChild.type
+    : "Child 1";
 
   // Evaluate compatibility
   const compatibility = useMemo(() => {
     const isSameType = selectedType === node.type;
     let hasConflict = false;
-    let conflictType: 'decorator_overflow' | 'leaf_with_children' | 'none' = 'none';
+    let conflictType: "decorator_overflow" | "leaf_with_children" | "none" =
+      "none";
 
-    if (targetCategory === 'Decorator') {
+    if (targetCategory === "Decorator") {
       if (childrenCount > 1) {
         hasConflict = true;
-        conflictType = 'decorator_overflow';
+        conflictType = "decorator_overflow";
       }
-    } else if (targetCategory === 'Action' || targetCategory === 'Condition' || targetCategory === 'SubTree') {
+    } else if (
+      targetCategory === "Action" ||
+      targetCategory === "Condition" ||
+      targetCategory === "SubTree"
+    ) {
       if (childrenCount > 0) {
         hasConflict = true;
-        conflictType = 'leaf_with_children';
+        conflictType = "leaf_with_children";
       }
     }
 
@@ -111,11 +125,11 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
       return;
     }
 
-    let chosenResolution: ChangeNodeTypeResolution = 'keep_all';
-    if (compatibility.conflictType === 'decorator_overflow') {
-      chosenResolution = 'keep_first_detach_rest';
-    } else if (compatibility.conflictType === 'leaf_with_children') {
-      chosenResolution = 'detach_all';
+    let chosenResolution: ChangeNodeTypeResolution = "keep_all";
+    if (compatibility.conflictType === "decorator_overflow") {
+      chosenResolution = "keep_first_detach_rest";
+    } else if (compatibility.conflictType === "leaf_with_children") {
+      chosenResolution = "detach_all";
     }
 
     onApply(node.id, selectedType, chosenResolution);
@@ -124,12 +138,18 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
 
   const getCategoryIcon = (cat: BTEditorNodeCategory) => {
     switch (cat) {
-      case 'Control': return <GitBranch className="w-4 h-4 text-blue-500" />;
-      case 'Decorator': return <Repeat className="w-4 h-4 text-accent-primary" />;
-      case 'Action': return <Zap className="w-4 h-4 text-amber-500" />;
-      case 'Condition': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
-      case 'SubTree': return <Layers className="w-4 h-4 text-indigo-500" />;
-      default: return <Info className="w-4 h-4 text-slate-500" />;
+      case "Control":
+        return <GitBranch className="w-4 h-4 text-blue-500" />;
+      case "Decorator":
+        return <Repeat className="w-4 h-4 text-accent-primary" />;
+      case "Action":
+        return <Zap className="w-4 h-4 text-amber-500" />;
+      case "Condition":
+        return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+      case "SubTree":
+        return <Layers className="w-4 h-4 text-indigo-500" />;
+      default:
+        return <Info className="w-4 h-4 text-slate-500" />;
     }
   };
 
@@ -143,8 +163,12 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
               <GitBranch className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-text-primary">Change Node Type</h3>
-              <p className="text-[11px] text-text-muted">Safely convert node without losing ID or attributes</p>
+              <h3 className="font-bold text-sm text-text-primary">
+                Change Node Type
+              </h3>
+              <p className="text-[11px] text-text-muted">
+                Safely convert node without losing ID or attributes
+              </p>
             </div>
           </div>
           <button
@@ -164,15 +188,21 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
                 {getCategoryIcon(currentCategory)}
               </div>
               <div>
-                <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Current Node</div>
+                <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                  Current Node
+                </div>
                 <div className="font-bold text-sm text-text-primary flex items-center gap-2">
                   <span>{node.name || node.type}</span>
-                  <span className="text-xs font-mono font-normal text-text-muted">({node.type})</span>
+                  <span className="text-xs font-mono font-normal text-text-muted">
+                    ({node.type})
+                  </span>
                 </div>
               </div>
             </div>
             <div className="text-right text-[11px] text-text-muted">
-              <div><b className="text-text-primary">{childrenCount}</b> children</div>
+              <div>
+                <b className="text-text-primary">{childrenCount}</b> children
+              </div>
             </div>
           </div>
 
@@ -188,27 +218,37 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
             >
               <optgroup label="── Control Nodes (Sequence, Fallback, etc.) ──">
                 {categorizedOptions.Control.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </optgroup>
               <optgroup label="── Decorator Nodes (Inverter, Retry, Timeout, etc.) ──">
                 {categorizedOptions.Decorator.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </optgroup>
               <optgroup label="── Action Nodes ──">
                 {categorizedOptions.Action.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </optgroup>
               <optgroup label="── Condition Nodes ──">
                 {categorizedOptions.Condition.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </optgroup>
               <optgroup label="── SubTree Nodes ──">
                 {categorizedOptions.SubTree.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </optgroup>
             </select>
@@ -218,7 +258,9 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
           <div className="flex items-center justify-center gap-3 p-3 rounded-xl bg-surface-secondary border border-border-subtle font-mono text-xs">
             <span className="font-bold text-text-secondary">{node.type}</span>
             <ArrowRight className="w-4 h-4 text-accent-primary shrink-0" />
-            <span className="font-bold text-accent-primary">{selectedType}</span>
+            <span className="font-bold text-accent-primary">
+              {selectedType}
+            </span>
             <span className="text-[10px] px-2 py-0.5 rounded border border-border-subtle bg-surface-primary text-text-muted">
               {targetCategory}
             </span>
@@ -227,7 +269,8 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
           {/* Compatibility Analysis Box */}
           <div className="p-3.5 rounded-xl border border-border-subtle bg-surface-secondary space-y-2">
             <div className="font-bold text-xs text-text-primary flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-accent-primary" /> Compatibility & Preservation
+              <Info className="w-3.5 h-3.5 text-accent-primary" /> Compatibility
+              & Preservation
             </div>
 
             <div className="space-y-1.5 text-[11px]">
@@ -241,7 +284,9 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
               </div>
               <div className="flex items-center gap-2 text-text-muted">
                 <Info className="w-3.5 h-3.5 shrink-0" />
-                <span>Port definitions and bindings will adapt to {selectedType}</span>
+                <span>
+                  Port definitions and bindings will adapt to {selectedType}
+                </span>
               </div>
             </div>
           </div>
@@ -254,30 +299,36 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
                 <span>Structural Conflict Detected</span>
               </div>
 
-              {compatibility.conflictType === 'decorator_overflow' && (
+              {compatibility.conflictType === "decorator_overflow" && (
                 <div className="space-y-2 text-[11px]">
                   <p>
-                    A <b>Decorator</b> can only have <b>1 child</b>, but this node currently has <b>{childrenCount} children</b>.
+                    A <b>Decorator</b> can only have <b>1 child</b>, but this
+                    node currently has <b>{childrenCount} children</b>.
                   </p>
                   <p className="font-semibold text-text-primary">
                     Safe Conversion Action:
                   </p>
                   <div className="p-2 rounded-lg bg-surface-primary border border-border-subtle text-text-primary">
-                    ✓ Keep first child <b>"{firstChildName}"</b> and detach the remaining <b>{childrenCount - 1} children</b> as independent nodes. (No nodes will be deleted!)
+                    ✓ Keep first child <b>"{firstChildName}"</b> and detach the
+                    remaining <b>{childrenCount - 1} children</b> as independent
+                    nodes. (No nodes will be deleted!)
                   </div>
                 </div>
               )}
 
-              {compatibility.conflictType === 'leaf_with_children' && (
+              {compatibility.conflictType === "leaf_with_children" && (
                 <div className="space-y-2 text-[11px]">
                   <p>
-                    <b>{targetCategory}</b> nodes are leaf nodes and <b>cannot have children</b>, but this node currently has <b>{childrenCount} child(ren)</b>.
+                    <b>{targetCategory}</b> nodes are leaf nodes and{" "}
+                    <b>cannot have children</b>, but this node currently has{" "}
+                    <b>{childrenCount} child(ren)</b>.
                   </p>
                   <p className="font-semibold text-text-primary">
                     Safe Conversion Action:
                   </p>
                   <div className="p-2 rounded-lg bg-surface-primary border border-border-subtle text-text-primary">
-                    ✓ Detach all <b>{childrenCount} children</b> as independent nodes in the tree. (No nodes will be deleted!)
+                    ✓ Detach all <b>{childrenCount} children</b> as independent
+                    nodes in the tree. (No nodes will be deleted!)
                   </div>
                 </div>
               )}
@@ -298,7 +349,9 @@ export const BTEditorChangeTypeModal: React.FC<BTEditorChangeTypeModalProps> = (
             disabled={compatibility.isSameType}
             className="px-4 py-2 rounded-xl bg-accent-primary hover:bg-accent-hover disabled:opacity-40 text-white font-semibold shadow-sm transition-all cursor-pointer text-xs"
           >
-            {compatibility.isSameType ? 'Select a different type' : 'Apply Type Change'}
+            {compatibility.isSameType
+              ? "Select a different type"
+              : "Apply Type Change"}
           </button>
         </div>
       </div>

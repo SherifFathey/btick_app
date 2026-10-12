@@ -1,7 +1,7 @@
-import { ProtocolSessionState, ProtocolCapabilities } from '../types';
+import { ProtocolSessionState, ProtocolCapabilities } from "../types";
 
 export interface Nav2SessionState extends ProtocolSessionState {
-  protocol: 'nav2';
+  protocol: "nav2";
   hasSampleLoaded?: boolean;
 }
 
@@ -17,15 +17,15 @@ export const NAV2_CAPABILITIES: ProtocolCapabilities = {
 };
 
 export const createInitialNav2Session = (): Nav2SessionState => ({
-  protocol: 'nav2',
-  name: 'Nav2 (ROS 2 Log)',
+  protocol: "nav2",
+  name: "Nav2 (ROS 2 Log)",
   isConnected: false,
   session: {
-    sessionId: 'nav2_default_0',
-    executionInstanceId: 'init_0',
+    sessionId: "nav2_default_0",
+    executionInstanceId: "init_0",
     startedAt: Date.now(),
     lastHeartbeatAt: 0,
-    connectionStatus: 'DISCONNECTED',
+    connectionStatus: "DISCONNECTED",
     reconnectAttempts: 0,
   },
   treesMap: new Map(),
@@ -53,8 +53,8 @@ export const createInitialNav2Session = (): Nav2SessionState => ({
   },
   treeReplays: new Map(),
   treeEvents: new Map(),
-  viewMode: 'focused',
-  orientation: 'vertical',
+  viewMode: "focused",
+  orientation: "vertical",
   filters: {
     showRunning: true,
     showSuccess: true,

@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import React, { memo } from "react";
+import { Handle, Position } from "@xyflow/react";
 import {
   Layers,
   ChevronDown,
@@ -7,9 +7,9 @@ import {
   ExternalLink,
   Plus,
   AlertCircle,
-  FolderOpen
-} from 'lucide-react';
-import { BTEditorNode, BTEditorTree } from '../types';
+  FolderOpen,
+} from "lucide-react";
+import { BTEditorNode, BTEditorTree } from "../types";
 
 export interface BTEditorSubTreeContainerData {
   node: BTEditorNode;
@@ -21,10 +21,12 @@ export interface BTEditorSubTreeContainerData {
   onCreateTree?: (treeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   isSelected: boolean;
-  orientation?: 'vertical' | 'horizontal';
+  orientation?: "vertical" | "horizontal";
 }
 
-export const BTEditorSubTreeContainerComponent: React.FC<{ data: BTEditorSubTreeContainerData }> = memo(({ data }) => {
+export const BTEditorSubTreeContainerComponent: React.FC<{
+  data: BTEditorSubTreeContainerData;
+}> = memo(({ data }) => {
   const {
     node,
     targetTreeId,
@@ -35,10 +37,10 @@ export const BTEditorSubTreeContainerComponent: React.FC<{ data: BTEditorSubTree
     onCreateTree,
     onSelectNode,
     isSelected,
-    orientation = 'vertical',
+    orientation = "vertical",
   } = data;
 
-  const isHorizontal = orientation === 'horizontal';
+  const isHorizontal = orientation === "horizontal";
   const nodeCount = targetTree ? Object.keys(targetTree.nodes).length : 0;
   const isMissingTree = !targetTree && targetTreeId;
 
@@ -50,22 +52,23 @@ export const BTEditorSubTreeContainerComponent: React.FC<{ data: BTEditorSubTree
           e.stopPropagation();
           onSelectNode(node.id);
         }}
-        className={`relative w-[230px] rounded-2xl p-3 border transition-all cursor-pointer font-sans bg-surface-primary text-text-primary shadow-sm hover:shadow-md select-none ${isSelected
-            ? 'ring-2 ring-indigo-500 border-indigo-500 shadow-lg'
-            : 'border-border-medium hover:border-indigo-400'
-          }`}
+        className={`relative w-[230px] rounded-2xl p-3 border transition-all cursor-pointer font-sans bg-surface-primary text-text-primary shadow-sm hover:shadow-md select-none ${
+          isSelected
+            ? "ring-2 ring-indigo-500 border-indigo-500 shadow-lg"
+            : "border-border-medium hover:border-indigo-400"
+        }`}
       >
         {/* Target Handle */}
         <Handle
           type="target"
           position={isHorizontal ? Position.Left : Position.Top}
-          id={isHorizontal ? 'target-left' : 'target-top'}
+          id={isHorizontal ? "target-left" : "target-top"}
           className="!w-4 !h-4 !bg-indigo-500 !border-2 !border-white dark:!border-slate-900 shadow-sm"
         />
         <Handle
           type="source"
           position={isHorizontal ? Position.Right : Position.Bottom}
-          id={isHorizontal ? 'source-right' : 'source-bottom'}
+          id={isHorizontal ? "source-right" : "source-bottom"}
           className="!w-4 !h-4 !bg-indigo-500 !border-2 !border-white dark:!border-slate-900 shadow-sm"
         />
 
@@ -90,8 +93,11 @@ export const BTEditorSubTreeContainerComponent: React.FC<{ data: BTEditorSubTree
 
         {/* SubTree Name / Target */}
         <div className="min-w-0 mb-1.5 nodrag select-none">
-          <span className="inline-block max-w-full align-bottom font-bold text-xs text-text-primary truncate select-text" title={node.name || targetTreeId}>
-            {node.name || targetTreeId || 'Unnamed SubTree'}
+          <span
+            className="inline-block max-w-full align-bottom font-bold text-xs text-text-primary truncate select-text"
+            title={node.name || targetTreeId}
+          >
+            {node.name || targetTreeId || "Unnamed SubTree"}
           </span>
           <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 truncate flex items-center gap-1 mt-0.5 select-none">
             <FolderOpen className="w-3 h-3 shrink-0" />
@@ -103,7 +109,9 @@ export const BTEditorSubTreeContainerComponent: React.FC<{ data: BTEditorSubTree
         {isMissingTree ? (
           <div className="mt-2 pt-1.5 border-t border-border-subtle flex items-center gap-1 text-rose-500 text-[10px] select-none">
             <AlertCircle className="w-3 h-3 shrink-0" />
-            <span className="select-text">Tree "{targetTreeId}" not defined</span>
+            <span className="select-text">
+              Tree "{targetTreeId}" not defined
+            </span>
           </div>
         ) : (
           <div className="mt-2 pt-1.5 border-t border-border-subtle flex items-center justify-between text-[10px] text-text-muted select-none">
@@ -133,22 +141,23 @@ export const BTEditorSubTreeContainerComponent: React.FC<{ data: BTEditorSubTree
         e.stopPropagation();
         onSelectNode(node.id);
       }}
-      className={`relative w-full h-full rounded-2xl border-2 border-dashed transition-all select-none font-sans bg-indigo-50/20 dark:bg-indigo-950/20 backdrop-blur-2xs ${isSelected
-          ? 'border-indigo-500 ring-2 ring-indigo-400/50 shadow-xl'
-          : 'border-indigo-400/60 dark:border-indigo-600/60 shadow-md'
-        }`}
+      className={`relative w-full h-full rounded-2xl border-2 border-dashed transition-all select-none font-sans bg-indigo-50/20 dark:bg-indigo-950/20 backdrop-blur-2xs ${
+        isSelected
+          ? "border-indigo-500 ring-2 ring-indigo-400/50 shadow-xl"
+          : "border-indigo-400/60 dark:border-indigo-600/60 shadow-md"
+      }`}
     >
       {/* Target Handle from Outer Tree */}
       <Handle
         type="target"
         position={isHorizontal ? Position.Left : Position.Top}
-        id={isHorizontal ? 'target-left' : 'target-top'}
+        id={isHorizontal ? "target-left" : "target-top"}
         className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-white dark:!border-slate-900 shadow-sm"
       />
       <Handle
         type="source"
         position={isHorizontal ? Position.Right : Position.Bottom}
-        id={isHorizontal ? 'source-right' : 'source-bottom'}
+        id={isHorizontal ? "source-right" : "source-bottom"}
         className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-white dark:!border-slate-900 shadow-sm"
       />
 
@@ -202,7 +211,9 @@ export const BTEditorSubTreeContainerComponent: React.FC<{ data: BTEditorSubTree
         <div className="p-4 flex flex-col items-center justify-center h-36 gap-2 text-center text-xs select-none">
           <div className="text-rose-500 flex items-center gap-1.5 font-bold">
             <AlertCircle className="w-4 h-4" />
-            <span className="select-text">Referenced Tree "{targetTreeId}" does not exist</span>
+            <span className="select-text">
+              Referenced Tree "{targetTreeId}" does not exist
+            </span>
           </div>
           {onCreateTree && (
             <button
@@ -229,4 +240,5 @@ export const BTEditorSubTreeContainerComponent: React.FC<{ data: BTEditorSubTree
   );
 });
 
-BTEditorSubTreeContainerComponent.displayName = 'BTEditorSubTreeContainerComponent';
+BTEditorSubTreeContainerComponent.displayName =
+  "BTEditorSubTreeContainerComponent";

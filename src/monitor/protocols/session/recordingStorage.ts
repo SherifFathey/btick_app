@@ -3,7 +3,7 @@ import {
   RecordingSession,
   RecordingSnapshot,
   TransitionEvent,
-} from '../../types/bt';
+} from "../../types/bt";
 
 export interface RecordingSessionMetadata {
   name: string;
@@ -12,24 +12,24 @@ export interface RecordingSessionMetadata {
 }
 
 export interface RecordingHeaderRecord {
-  kind: 'header';
+  kind: "header";
   sessionId: string;
   metadata: RecordingSessionMetadata;
   initialTrees: BTTreeModel[];
 }
 
 export interface RecordingEventRecord {
-  kind: 'event';
+  kind: "event";
   event: TransitionEvent;
 }
 
 export interface RecordingSnapshotRecord {
-  kind: 'snapshot';
+  kind: "snapshot";
   snapshot: RecordingSnapshot;
 }
 
 export interface RecordingFooterRecord {
-  kind: 'footer';
+  kind: "footer";
   finalTrees?: BTTreeModel[];
 }
 
@@ -59,11 +59,20 @@ export interface RecordingStorageAdapter {
   /**
    * Returns record counts directly from persistent disk storage.
    */
-  getRecordCounts?(sessionId?: string): Promise<{ events: number; snapshots: number; executions: number; total: number }>;
+  getRecordCounts?(sessionId?: string): Promise<{
+    events: number;
+    snapshots: number;
+    executions: number;
+    total: number;
+  }>;
   /**
    * Reads a bounded event range directly from disk.
    */
-  readEventRange?(sessionId: string, startIndex: number, count: number): Promise<TransitionEvent[]>;
+  readEventRange?(
+    sessionId: string,
+    startIndex: number,
+    count: number,
+  ): Promise<TransitionEvent[]>;
   /**
    * Updates the heartbeat timestamp for an active session.
    */

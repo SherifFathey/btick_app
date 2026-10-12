@@ -1,4 +1,7 @@
-import { RecordingStorageAdapter, RecordingStorageRecord } from './recordingStorage';
+import {
+  RecordingStorageAdapter,
+  RecordingStorageRecord,
+} from "./recordingStorage";
 
 export const appendOrQueueRecordingRecords = (
   adapter: RecordingStorageAdapter | null,
@@ -11,8 +14,8 @@ export const appendOrQueueRecordingRecords = (
     return;
   }
   for (const record of records) {
-    if (record.kind === 'event') adapter.appendEvent(record.event);
-    if (record.kind === 'snapshot') adapter.appendSnapshot(record.snapshot);
+    if (record.kind === "event") adapter.appendEvent(record.event);
+    if (record.kind === "snapshot") adapter.appendSnapshot(record.snapshot);
   }
 };
 
@@ -21,8 +24,8 @@ export const flushQueuedRecordingRecords = (
   pending: RecordingStorageRecord[],
 ): void => {
   for (const record of pending) {
-    if (record.kind === 'event') adapter.appendEvent(record.event);
-    if (record.kind === 'snapshot') adapter.appendSnapshot(record.snapshot);
+    if (record.kind === "event") adapter.appendEvent(record.event);
+    if (record.kind === "snapshot") adapter.appendSnapshot(record.snapshot);
   }
   pending.length = 0;
 };

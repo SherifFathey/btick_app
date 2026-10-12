@@ -9,7 +9,8 @@ export const resolveNodePorts = (node: BTNodeModel): BTPortDetail[] => {
     seen.add(port.name);
     list.push({
       ...port,
-      runtime_value: port.runtime_value ?? node.output_ports_values?.[port.name],
+      runtime_value:
+        port.runtime_value ?? node.output_ports_values?.[port.name],
     });
   });
 

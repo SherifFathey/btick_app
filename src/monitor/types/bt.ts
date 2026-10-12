@@ -1,15 +1,28 @@
-export type NodeStatus = 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILURE' | 'SKIPPED' | 'PAUSED_AT_BREAKPOINT';
+export type NodeStatus =
+  | "IDLE"
+  | "RUNNING"
+  | "SUCCESS"
+  | "FAILURE"
+  | "SKIPPED"
+  | "PAUSED_AT_BREAKPOINT";
 
-import { NodeCategory } from '../../shared/types/btCategory';
+import { NodeCategory } from "../../shared/types/btCategory";
 export type { NodeCategory };
 
-export type TreeStatus = 'CREATED' | 'RUNNING' | 'SUCCESS' | 'FAILURE' | 'IDLE' | 'STOPPED' | 'DESTROYED';
+export type TreeStatus =
+  | "CREATED"
+  | "RUNNING"
+  | "SUCCESS"
+  | "FAILURE"
+  | "IDLE"
+  | "STOPPED"
+  | "DESTROYED";
 
 export interface BTPortDetail {
   name: string;
   type: string;
-  direction: 'Input' | 'Output' | 'Inout' | 'Unknown';
-  mode: 'Literal' | 'Blackboard';
+  direction: "Input" | "Output" | "Inout" | "Unknown";
+  mode: "Literal" | "Blackboard";
   value: string;
   default_value?: string;
   runtime_value?: string;
@@ -47,7 +60,7 @@ export interface BTNodeModel {
 }
 
 export interface BTTreeModel {
-  type: 'tree' | 'tree_created';
+  type: "tree" | "tree_created";
   tree_id: string;
   tree_name: string;
   display_name?: string;
@@ -72,12 +85,12 @@ export interface BTPortUpdate {
   port_name: string;
   blackboard_key?: string;
   value: string;
-  mode?: 'Literal' | 'Blackboard';
+  mode?: "Literal" | "Blackboard";
 }
 
 export interface TransitionEvent {
   id: string;
-  type: 'transition';
+  type: "transition";
   source?: string;
   protocol?: string;
   tree_id: string;
@@ -97,7 +110,7 @@ export interface TransitionEvent {
 }
 
 export interface ExecutionCycleStartedEvent {
-  type: 'execution_cycle_started';
+  type: "execution_cycle_started";
   source?: string;
   protocol?: string;
   tree_id: string;
@@ -144,13 +157,13 @@ export interface ReplayState {
   speed: number;
   session: RecordingSession | null;
   replayTime?: number;
-  replaySource?: 'record' | 'loaded';
+  replaySource?: "record" | "loaded";
 }
 
-export type ViewMode = 'focused' | 'grid';
+export type ViewMode = "focused" | "grid";
 
-export type TreeOrientation = 'vertical' | 'horizontal';
-export type EdgePathMode = 'orthogonal' | 'bezier';
+export type TreeOrientation = "vertical" | "horizontal";
+export type EdgePathMode = "orthogonal" | "bezier";
 
 export interface StatusFilterOptions {
   showRunning: boolean;
@@ -159,7 +172,13 @@ export interface StatusFilterOptions {
   showIdle: boolean;
 }
 
-export type FaultMode = 'FORCE_FAILURE' | 'FORCE_SUCCESS' | 'FORCE_RUNNING' | 'FORCE_SKIPPED' | 'DELAY' | 'NONE';
+export type FaultMode =
+  | "FORCE_FAILURE"
+  | "FORCE_SUCCESS"
+  | "FORCE_RUNNING"
+  | "FORCE_SKIPPED"
+  | "DELAY"
+  | "NONE";
 
 export interface FaultRule {
   tree_id: string;

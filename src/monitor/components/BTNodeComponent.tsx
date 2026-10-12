@@ -1,4 +1,11 @@
-import React, { memo, useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, {
+  memo,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { Handle, Position, useStore, useReactFlow } from "@xyflow/react";
 import {
   CheckCircle2,
@@ -295,7 +302,12 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
         cancelAnimationFrame(frameId);
         if (ro) ro.disconnect();
       };
-    }, [checkOverflow, nodeData.attributes, nodeData.ports, nodeData.port_details]);
+    }, [
+      checkOverflow,
+      nodeData.attributes,
+      nodeData.ports,
+      nodeData.port_details,
+    ]);
 
     const handlePortsMouseEnter = () => {
       if (portsListRef.current) {
@@ -312,7 +324,9 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
     const [editingPortName, setEditingPortName] = useState<string | null>(null);
     const [portDrafts, setPortDrafts] = useState<Record<string, string>>({});
     const [portApplying, setPortApplying] = useState<string | null>(null);
-    const [portFeedback, setPortFeedback] = useState<Record<string, string>>({});
+    const [portFeedback, setPortFeedback] = useState<Record<string, string>>(
+      {},
+    );
 
     useEffect(() => {
       if (!editingPortName) return;
@@ -415,19 +429,27 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
         !nodeData.uid ||
         isReadOnly ||
         activeProtocol !== "btick"
-      ) return;
+      )
+        return;
       const value = portDrafts[port.name] ?? port.value;
-      const mode = value.startsWith("{") && value.endsWith("}")
-        ? "Blackboard"
-        : "Literal";
+      const mode =
+        value.startsWith("{") && value.endsWith("}") ? "Blackboard" : "Literal";
 
       setPortApplying(port.name);
       setPortFeedback((previous) => ({ ...previous, [port.name]: "" }));
       try {
-        const result = await onSetNodePort(treeId, nodeData.uid, port.name, value, mode);
+        const result = await onSetNodePort(
+          treeId,
+          nodeData.uid,
+          port.name,
+          value,
+          mode,
+        );
         setPortFeedback((previous) => ({
           ...previous,
-          [port.name]: result.success ? "Applied" : result.error || "Failed to update",
+          [port.name]: result.success
+            ? "Applied"
+            : result.error || "Failed to update",
         }));
         if (result.success) {
           setEditingPortName(null);
@@ -447,7 +469,11 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       }
     };
 
-    const renderCardPortRow = (name: string, rawValue: unknown, labelClass: string) => {
+    const renderCardPortRow = (
+      name: string,
+      rawValue: unknown,
+      labelClass: string,
+    ) => {
       const value = String(rawValue ?? "");
       const port = resolvedPorts.find((candidate) => candidate.name === name);
       const isEditing = editingPortName === name;
@@ -461,9 +487,10 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       const draft = portDrafts[name] ?? value;
       const feedback = portFeedback[name];
       const { display } = resolvePortValue(value, name);
-      const portValueClass = port?.mode === "Blackboard"
-        ? "text-accent-primary"
-        : "text-slate-900 dark:text-slate-100";
+      const portValueClass =
+        port?.mode === "Blackboard"
+          ? "text-accent-primary"
+          : "text-slate-900 dark:text-slate-100";
 
       return (
         <div key={name} className="flex flex-col">
@@ -475,7 +502,9 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
               <span className={`${labelClass} font-bold shrink-0 select-text`}>
                 {name}=
               </span>
-              <span className={`${portValueClass} font-semibold break-all select-text`}>
+              <span
+                className={`${portValueClass} font-semibold break-all select-text`}
+              >
                 {display}
               </span>
             </div>
@@ -574,7 +603,10 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       const element = cardRef.current;
       if (!element) return;
       const updateSize = () =>
-        setNodeSize({ width: element.offsetWidth, height: element.offsetHeight });
+        setNodeSize({
+          width: element.offsetWidth,
+          height: element.offsetHeight,
+        });
       updateSize();
       if (typeof ResizeObserver === "undefined") return;
       const observer = new ResizeObserver(updateSize);
@@ -622,21 +654,25 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
     const faultIndicatorStyle =
       nodeData?.fault_mode === "FORCE_SUCCESS"
         ? {
-            banner: "bg-state-success-bg border-state-success-border text-state-success-text",
+            banner:
+              "bg-state-success-bg border-state-success-border text-state-success-text",
             icon: "text-state-success-text",
           }
         : nodeData?.fault_mode === "FORCE_FAILURE"
           ? {
-              banner: "bg-state-failure-bg border-state-failure-border text-state-failure-text",
+              banner:
+                "bg-state-failure-bg border-state-failure-border text-state-failure-text",
               icon: "text-state-failure-text",
             }
           : nodeData?.fault_mode === "FORCE_RUNNING"
             ? {
-                banner: "bg-state-running-bg border-state-running-border text-state-running-text",
+                banner:
+                  "bg-state-running-bg border-state-running-border text-state-running-text",
                 icon: "text-state-running-text",
               }
             : {
-                banner: "bg-surface-hover border-border-medium text-text-primary",
+                banner:
+                  "bg-surface-hover border-border-medium text-text-primary",
                 icon: "text-text-muted",
               };
 
@@ -694,10 +730,7 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       nodeData?.fault_delay_ms,
     ]);
 
-    const resolvedPorts = useMemo(
-      () => resolveNodePorts(nodeData),
-      [nodeData],
-    );
+    const resolvedPorts = useMemo(() => resolveNodePorts(nodeData), [nodeData]);
     const allParams = Object.fromEntries(
       resolvedPorts.map((port) => [port.name, port.value]),
     );
@@ -769,7 +802,10 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
         : undefined;
 
       if (port?.mode === "Blackboard") {
-        const blackboardKey = port.value.trim().replace(/^\{|\}$/g, "").trim();
+        const blackboardKey = port.value
+          .trim()
+          .replace(/^\{|\}$/g, "")
+          .trim();
         if (Object.prototype.hasOwnProperty.call(blackboard, blackboardKey)) {
           const currentValue = blackboard[blackboardKey];
           return {
@@ -807,16 +843,17 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
             <div className="flex items-center justify-between gap-1.5 pb-2 mb-2 border-b border-border-subtle">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span
-                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${isSuccess
-                    ? "bg-state-success-border"
-                    : isFailure
-                      ? "bg-state-failure-border"
-                      : isRunning
-                        ? "bg-state-running-border animate-pulse"
-                        : isPausedAtBreakpoint
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    isSuccess
+                      ? "bg-state-success-border"
+                      : isFailure
+                        ? "bg-state-failure-border"
+                        : isRunning
                           ? "bg-state-running-border animate-pulse"
-                          : "bg-text-muted"
-                    }`}
+                          : isPausedAtBreakpoint
+                            ? "bg-state-running-border animate-pulse"
+                            : "bg-text-muted"
+                  }`}
                 />
                 <div className="min-w-0">
                   <span
@@ -840,16 +877,17 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
                   Status
                 </span>
                 <span
-                  className={`font-bold ${isSuccess
-                    ? "text-state-success-text"
-                    : isFailure
-                      ? "text-state-failure-text"
-                      : isRunning
-                        ? "text-state-running-text"
-                        : isPausedAtBreakpoint
+                  className={`font-bold ${
+                    isSuccess
+                      ? "text-state-success-text"
+                      : isFailure
+                        ? "text-state-failure-text"
+                        : isRunning
                           ? "text-state-running-text"
-                          : "text-text-secondary"
-                    }`}
+                          : isPausedAtBreakpoint
+                            ? "text-state-running-text"
+                            : "text-text-secondary"
+                  }`}
                 >
                   {isPausedAtBreakpoint ? "PAUSED" : nodeStatus}
                 </span>
@@ -888,10 +926,7 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
                 </div>
                 <div className="space-y-1 font-mono text-[10px]">
                   {Object.entries(allParams).map(([key, val]) => {
-                    const { display } = resolvePortValue(
-                      String(val),
-                      key,
-                    );
+                    const { display } = resolvePortValue(String(val), key);
 
                     return (
                       <div
@@ -954,52 +989,52 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
         />
 
         {/* Delay progress follows the selected node ring geometry starting from the parent connection port */}
-        {isDelayActive && (() => {
-          const x0 = 4;
-          const y0 = 4;
-          const w = nodeSize.width;
-          const h = nodeSize.height;
-          const r = Math.min(10, Math.min(w, h) / 2);
-          const x1 = x0 + w;
-          const y1 = y0 + h;
+        {isDelayActive &&
+          (() => {
+            const x0 = 4;
+            const y0 = 4;
+            const w = nodeSize.width;
+            const h = nodeSize.height;
+            const r = Math.min(10, Math.min(w, h) / 2);
+            const x1 = x0 + w;
+            const y1 = y0 + h;
 
-          const pathD = isHorizontal
-            ? `M ${x0} ${y0 + h / 2} L ${x0} ${y0 + r} A ${r} ${r} 0 0 1 ${x0 + r} ${y0} L ${x1 - r} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y0 + r} L ${x1} ${y1 - r} A ${r} ${r} 0 0 1 ${x1 - r} ${y1} L ${x0 + r} ${y1} A ${r} ${r} 0 0 1 ${x0} ${y1 - r} Z`
-            : `M ${x0 + w / 2} ${y0} L ${x1 - r} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y0 + r} L ${x1} ${y1 - r} A ${r} ${r} 0 0 1 ${x1 - r} ${y1} L ${x0 + r} ${y1} A ${r} ${r} 0 0 1 ${x0} ${y1 - r} L ${x0} ${y0 + r} A ${r} ${r} 0 0 1 ${x0 + r} ${y0} Z`;
+            const pathD = isHorizontal
+              ? `M ${x0} ${y0 + h / 2} L ${x0} ${y0 + r} A ${r} ${r} 0 0 1 ${x0 + r} ${y0} L ${x1 - r} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y0 + r} L ${x1} ${y1 - r} A ${r} ${r} 0 0 1 ${x1 - r} ${y1} L ${x0 + r} ${y1} A ${r} ${r} 0 0 1 ${x0} ${y1 - r} Z`
+              : `M ${x0 + w / 2} ${y0} L ${x1 - r} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y0 + r} L ${x1} ${y1 - r} A ${r} ${r} 0 0 1 ${x1 - r} ${y1} L ${x0 + r} ${y1} A ${r} ${r} 0 0 1 ${x0} ${y1 - r} L ${x0} ${y0 + r} A ${r} ${r} 0 0 1 ${x0 + r} ${y0} Z`;
 
-          return (
-            <div className="absolute -inset-1 z-0 pointer-events-none">
-              <svg
-                className="absolute inset-0 h-full w-full overflow-visible"
-                viewBox={`0 0 ${nodeSize.width + 8} ${nodeSize.height + 8}`}
-                aria-hidden="true"
-              >
-                <path
-                  d={pathD}
-                  fill="none"
-                  stroke="var(--accent-primary)"
-                  strokeOpacity="0.95"
-                  strokeWidth="10"
-                  pathLength="100"
-                  strokeDasharray="100"
-                  strokeDashoffset={100 - delayProgressPercent}
-                  strokeLinecap="round"
-                  className="transition-[stroke-dashoffset] duration-75 ease-linear"
-                />
-              </svg>
-              <span className="absolute -top-5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-black bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold leading-none text-[var(--accent-primary)] shadow-2xs">
-                {delayRemainingSec === "0.0" ? "0" : `${delayRemainingSec}s`}
-              </span>
-            </div>
-          );
-        })()}
+            return (
+              <div className="absolute -inset-1 z-0 pointer-events-none">
+                <svg
+                  className="absolute inset-0 h-full w-full overflow-visible"
+                  viewBox={`0 0 ${nodeSize.width + 8} ${nodeSize.height + 8}`}
+                  aria-hidden="true"
+                >
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="var(--accent-primary)"
+                    strokeOpacity="0.95"
+                    strokeWidth="10"
+                    pathLength="100"
+                    strokeDasharray="100"
+                    strokeDashoffset={100 - delayProgressPercent}
+                    strokeLinecap="round"
+                    className="transition-[stroke-dashoffset] duration-75 ease-linear"
+                  />
+                </svg>
+                <span className="absolute -top-5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-black bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold leading-none text-[var(--accent-primary)] shadow-2xs">
+                  {delayRemainingSec === "0.0" ? "0" : `${delayRemainingSec}s`}
+                </span>
+              </div>
+            );
+          })()}
 
         {/* Node Box */}
         <div
           ref={cardRef}
           className={`relative w-full rounded-xl overflow-hidden transition-all duration-150 ${cardStyle}`}
         >
-
           {/* Top Accent Color Bar */}
           <div className={`w-full h-1.5 rounded-t-xl ${accentBarStyle}`} />
 
@@ -1059,11 +1094,17 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
 
             {/* Fault Banner */}
             {hasFault && (
-              <div className={`nodrag mt-1.5 flex items-center justify-between px-2 py-1 rounded-lg border font-mono text-[10px] font-bold shadow-xs select-none ${faultIndicatorStyle.banner}`}>
+              <div
+                className={`nodrag mt-1.5 flex items-center justify-between px-2 py-1 rounded-lg border font-mono text-[10px] font-bold shadow-xs select-none ${faultIndicatorStyle.banner}`}
+              >
                 <div className="flex items-center gap-1.5">
-                  <Zap className={`w-3 h-3 shrink-0 ${faultIndicatorStyle.icon}`} />
+                  <Zap
+                    className={`w-3 h-3 shrink-0 ${faultIndicatorStyle.icon}`}
+                  />
                   <span className="select-text">
-                    {nodeData.fault_mode === "FORCE_RUNNING" ? "BLOCK TICK" : nodeData.fault_mode}
+                    {nodeData.fault_mode === "FORCE_RUNNING"
+                      ? "BLOCK TICK"
+                      : nodeData.fault_mode}
                   </span>
                 </div>
                 {nodeData.fault_once && (
@@ -1078,43 +1119,43 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
             {((nodeData.attributes &&
               Object.keys(nodeData.attributes).length > 0) ||
               (nodeData.ports && Object.keys(nodeData.ports).length > 0)) && (
-                <div
-                  ref={portsListRef}
-                  onMouseEnter={handlePortsMouseEnter}
-                  className={`nodrag mt-2 flex flex-col gap-1.5 font-mono text-[10px] select-none pr-1 ${
-                    editingPortName
-                      ? "overflow-visible"
-                      : `max-h-24 bt-node-scrollbar ${
-                          allowInternalScroll
-                            ? "nowheel overflow-y-auto overscroll-contain"
-                            : "overflow-y-hidden"
-                        }`
-                  }`}
-                  onWheel={(e) => {
-                    if (allowInternalScroll) {
-                      e.stopPropagation();
-                    }
-                  }}
-                >
-                  {nodeData.attributes &&
-                    Object.entries(nodeData.attributes).map(([k, v]) => {
-                      return renderCardPortRow(
-                        k,
-                        v,
-                        "text-amber-700 dark:text-amber-400",
-                      );
-                    })}
+              <div
+                ref={portsListRef}
+                onMouseEnter={handlePortsMouseEnter}
+                className={`nodrag mt-2 flex flex-col gap-1.5 font-mono text-[10px] select-none pr-1 ${
+                  editingPortName
+                    ? "overflow-visible"
+                    : `max-h-24 bt-node-scrollbar ${
+                        allowInternalScroll
+                          ? "nowheel overflow-y-auto overscroll-contain"
+                          : "overflow-y-hidden"
+                      }`
+                }`}
+                onWheel={(e) => {
+                  if (allowInternalScroll) {
+                    e.stopPropagation();
+                  }
+                }}
+              >
+                {nodeData.attributes &&
+                  Object.entries(nodeData.attributes).map(([k, v]) => {
+                    return renderCardPortRow(
+                      k,
+                      v,
+                      "text-amber-700 dark:text-amber-400",
+                    );
+                  })}
 
-                  {nodeData.ports &&
-                    Object.entries(nodeData.ports).map(([k, v]) => {
-                      return renderCardPortRow(
-                        k,
-                        v,
-                        "text-[#24456E] dark:text-sky-300",
-                      );
-                    })}
-                </div>
-              )}
+                {nodeData.ports &&
+                  Object.entries(nodeData.ports).map(([k, v]) => {
+                    return renderCardPortRow(
+                      k,
+                      v,
+                      "text-[#24456E] dark:text-sky-300",
+                    );
+                  })}
+              </div>
+            )}
 
             {/* Execution Time */}
             {nodeData.last_duration !== undefined &&
@@ -1156,10 +1197,11 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
               e.stopPropagation();
               if (onToggleCollapse) onToggleCollapse(nodeData.id);
             }}
-            className={`absolute ${isHorizontal
-              ? "-right-3 top-1/2 -translate-y-1/2"
-              : "-bottom-3 left-1/2 -translate-x-1/2"
-              } w-5 h-5 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:border-slate-900 dark:hover:border-white shadow-md flex items-center justify-center cursor-pointer group z-30 transition-all hover:scale-110 hover:bg-[#6D94C5] dark:hover:bg-sky-600`}
+            className={`absolute ${
+              isHorizontal
+                ? "-right-3 top-1/2 -translate-y-1/2"
+                : "-bottom-3 left-1/2 -translate-x-1/2"
+            } w-5 h-5 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:border-slate-900 dark:hover:border-white shadow-md flex items-center justify-center cursor-pointer group z-30 transition-all hover:scale-110 hover:bg-[#6D94C5] dark:hover:bg-sky-600`}
             title={isCollapsed ? "Expand subtree" : "Collapse subtree"}
           >
             {isCollapsed ? (

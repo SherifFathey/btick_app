@@ -1,21 +1,25 @@
-import React, { useState } from 'react';
-import { 
-  X, 
-  Tag, 
-  Sliders, 
-  ArrowUp, 
-  ArrowDown, 
-  Plus, 
-  Trash2, 
-  Copy, 
-  Check, 
+import React, { useState } from "react";
+import {
+  X,
+  Tag,
+  Sliders,
+  ArrowUp,
+  ArrowDown,
+  Plus,
+  Trash2,
+  Copy,
+  Check,
   ArrowRight,
   GitBranch,
-  ExternalLink
-} from 'lucide-react';
-import { BTEditorNode, BTNodeModelDefinition, BTEditorConnection } from '../types';
-import { ChangeNodeTypeResolution } from '../documentModel';
-import { BTEditorChangeTypeModal } from './BTEditorChangeTypeModal';
+  ExternalLink,
+} from "lucide-react";
+import {
+  BTEditorNode,
+  BTNodeModelDefinition,
+  BTEditorConnection,
+} from "../types";
+import { ChangeNodeTypeResolution } from "../documentModel";
+import { BTEditorChangeTypeModal } from "./BTEditorChangeTypeModal";
 
 interface BTEditorInspectorProps {
   node: BTEditorNode | null;
@@ -26,12 +30,24 @@ interface BTEditorInspectorProps {
   onClose: () => void;
   onUpdateNode: (nodeId: string, updates: Partial<BTEditorNode>) => void;
   onSelectNode: (nodeId: string) => void;
-  onReorderChild: (parentId: string, fromIndex: number, toIndex: number) => void;
+  onReorderChild: (
+    parentId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => void;
   onDuplicate: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
-  onChangeNodeType?: (nodeId: string, newType: string, resolution: ChangeNodeTypeResolution) => void;
+  onChangeNodeType?: (
+    nodeId: string,
+    newType: string,
+    resolution: ChangeNodeTypeResolution,
+  ) => void;
   onDisconnectEdge?: (sourceParentId: string, targetChildId: string) => void;
-  onReconnectEdge?: (oldParentId: string, newParentId: string, childId: string) => { success: boolean; error?: string };
+  onReconnectEdge?: (
+    oldParentId: string,
+    newParentId: string,
+    childId: string,
+  ) => { success: boolean; error?: string };
 }
 
 export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
@@ -58,16 +74,16 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
   const [copiedType, setCopiedType] = useState(false);
 
   // Local state for adding new attribute
-  const [newAttrKey, setNewAttrKey] = useState('');
-  const [newAttrVal, setNewAttrVal] = useState('');
+  const [newAttrKey, setNewAttrKey] = useState("");
+  const [newAttrVal, setNewAttrVal] = useState("");
 
   // Local state for adding new input port
-  const [newInPortName, setNewInPortName] = useState('');
-  const [newInPortVal, setNewInPortVal] = useState('');
+  const [newInPortName, setNewInPortName] = useState("");
+  const [newInPortVal, setNewInPortVal] = useState("");
 
   // Local state for adding new output port
-  const [newOutPortName, setNewOutPortName] = useState('');
-  const [newOutPortVal, setNewOutPortVal] = useState('');
+  const [newOutPortName, setNewOutPortName] = useState("");
+  const [newOutPortVal, setNewOutPortVal] = useState("");
 
   // ================= CONNECTION INSPECTOR MODE =================
   if (selectedEdge && !node) {
@@ -80,7 +96,9 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
         <div className="h-[44px] px-3.5 border-b border-border-subtle bg-surface-primary flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-accent-primary" />
-            <h2 className="font-bold text-xs text-text-primary uppercase tracking-wide font-mono">Connection Inspector</h2>
+            <h2 className="font-bold text-xs text-text-primary uppercase tracking-wide font-mono">
+              Connection Inspector
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -101,12 +119,18 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
             {/* Parent Card */}
             <div className="p-3 rounded-xl bg-surface-primary border border-border-medium flex items-center justify-between shadow-2xs">
               <div>
-                <span className="text-[10px] font-semibold text-text-muted block font-mono">Parent Node</span>
+                <span className="text-[10px] font-semibold text-text-muted block font-mono">
+                  Parent Node
+                </span>
                 <span className="font-bold text-xs text-text-primary font-mono">
-                  {parentNode ? (parentNode.name || parentNode.type) : selectedEdge.source}
+                  {parentNode
+                    ? parentNode.name || parentNode.type
+                    : selectedEdge.source}
                 </span>
                 {parentNode && (
-                  <div className="text-[10px] font-mono text-text-muted">({parentNode.type})</div>
+                  <div className="text-[10px] font-mono text-text-muted">
+                    ({parentNode.type})
+                  </div>
                 )}
               </div>
               <button
@@ -125,12 +149,18 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
             {/* Child Card */}
             <div className="p-3 rounded-xl bg-surface-primary border border-border-medium flex items-center justify-between shadow-2xs">
               <div>
-                <span className="text-[10px] font-semibold text-text-muted block font-mono">Child Node</span>
+                <span className="text-[10px] font-semibold text-text-muted block font-mono">
+                  Child Node
+                </span>
                 <span className="font-bold text-xs text-text-primary font-mono">
-                  {childNode ? (childNode.name || childNode.type) : selectedEdge.target}
+                  {childNode
+                    ? childNode.name || childNode.type
+                    : selectedEdge.target}
                 </span>
                 {childNode && (
-                  <div className="text-[10px] font-mono text-text-muted">({childNode.type})</div>
+                  <div className="text-[10px] font-mono text-text-muted">
+                    ({childNode.type})
+                  </div>
                 )}
               </div>
               <button
@@ -177,8 +207,8 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
     if (!k) return;
     const nextAttrs = { ...(node.attributes || {}), [k]: newAttrVal };
     onUpdateNode(node.id, { attributes: nextAttrs });
-    setNewAttrKey('');
-    setNewAttrVal('');
+    setNewAttrKey("");
+    setNewAttrVal("");
   };
 
   // Input Port edits
@@ -198,8 +228,8 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
     if (!k) return;
     const nextPorts = { ...(node.inputPorts || {}), [k]: newInPortVal };
     onUpdateNode(node.id, { inputPorts: nextPorts });
-    setNewInPortName('');
-    setNewInPortVal('');
+    setNewInPortName("");
+    setNewInPortVal("");
   };
 
   // Output Port edits
@@ -219,11 +249,14 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
     if (!k) return;
     const nextPorts = { ...(node.outputPorts || {}), [k]: newOutPortVal };
     onUpdateNode(node.id, { outputPorts: nextPorts });
-    setNewOutPortName('');
-    setNewOutPortVal('');
+    setNewOutPortName("");
+    setNewOutPortVal("");
   };
 
-  const isLeaf = node.category === 'Action' || node.category === 'Condition' || node.category === 'SubTree';
+  const isLeaf =
+    node.category === "Action" ||
+    node.category === "Condition" ||
+    node.category === "SubTree";
   const parent = node.parentId ? treeNodes[node.parentId] : null;
 
   return (
@@ -232,7 +265,9 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
       <div className="h-[44px] px-3.5 border-b border-border-subtle bg-surface-primary flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <Sliders className="w-4 h-4 text-accent-primary" />
-          <h2 className="font-bold text-xs text-text-primary uppercase tracking-wide font-mono">Node Inspector</h2>
+          <h2 className="font-bold text-xs text-text-primary uppercase tracking-wide font-mono">
+            Node Inspector
+          </h2>
         </div>
         <button
           onClick={onClose}
@@ -248,7 +283,8 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
         <div className="bg-surface-secondary/70 p-3.5 rounded-2xl border border-border-medium space-y-3 shadow-xs">
           <div className="flex items-center justify-between pb-2 border-b border-border-subtle/80">
             <span className="text-xs font-bold text-text-primary uppercase tracking-wide font-mono flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-accent-primary" /> Node Configuration
+              <Sliders className="w-3.5 h-3.5 text-accent-primary" /> Node
+              Configuration
             </span>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-mono uppercase text-accent-primary font-bold px-2 py-0.5 rounded-md bg-surface-primary border border-border-medium shadow-2xs">
@@ -260,7 +296,9 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
           {/* Node Type: READ-ONLY with dedicated "Change Node Type" button */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] font-semibold text-text-muted font-mono">Node Type</label>
+              <label className="text-[10px] font-semibold text-text-muted font-mono">
+                Node Type
+              </label>
               <button
                 onClick={handleCopyType}
                 className="text-[10px] text-text-muted hover:text-text-primary flex items-center gap-1 cursor-pointer transition-colors"
@@ -280,7 +318,9 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
               </button>
             </div>
             <div className="flex items-center justify-between bg-surface-primary border border-border-medium rounded-xl px-2.5 py-2 shadow-2xs">
-              <span className="text-xs font-mono font-bold text-text-primary truncate mr-2">{isRoot ? 'Root' : node.type}</span>
+              <span className="text-xs font-mono font-bold text-text-primary truncate mr-2">
+                {isRoot ? "Root" : node.type}
+              </span>
               <button
                 onClick={() => setIsChangeTypeModalOpen(true)}
                 className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-accent-primary hover:bg-accent-hover text-white transition-all cursor-pointer border border-accent-border shrink-0 shadow-xs active:scale-95"
@@ -292,10 +332,12 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
 
           {/* Node Name Attribute */}
           <div>
-            <label className="text-[10px] font-semibold text-text-muted block mb-1 font-mono">Node Name / Label (Optional)</label>
+            <label className="text-[10px] font-semibold text-text-muted block mb-1 font-mono">
+              Node Name / Label (Optional)
+            </label>
             <input
               type="text"
-              value={node.name || ''}
+              value={node.name || ""}
               onChange={(e) => handleNameChange(e.target.value)}
               className="w-full bg-surface-primary border border-border-medium rounded-xl px-2.5 py-1.5 text-xs font-sans text-text-primary outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary/20 shadow-2xs"
               placeholder="e.g. root_sequence, navigate_to_charging"
@@ -307,16 +349,20 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
         <div className="bg-surface-secondary/70 p-3.5 rounded-2xl border border-border-medium space-y-3 shadow-xs">
           <div className="flex items-center justify-between pb-2 border-b border-border-subtle/80">
             <span className="text-xs font-bold text-text-primary uppercase tracking-wide font-mono flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-accent-primary" /> Hierarchy & Sibling Order
+              <Tag className="w-3.5 h-3.5 text-accent-primary" /> Hierarchy &
+              Sibling Order
             </span>
             <span className="text-[10px] font-mono text-text-muted px-2 py-0.5 rounded-md bg-surface-primary border border-border-subtle">
-              {node.children.length} Child{node.children.length !== 1 ? 'ren' : ''}
+              {node.children.length} Child
+              {node.children.length !== 1 ? "ren" : ""}
             </span>
           </div>
 
           {/* Parent Node info */}
           <div className="text-[11px] flex items-center justify-between bg-surface-primary p-2.5 rounded-xl border border-border-medium shadow-2xs">
-            <span className="text-text-muted font-mono font-semibold">Parent:</span>
+            <span className="text-text-muted font-mono font-semibold">
+              Parent:
+            </span>
             {parent ? (
               <button
                 onClick={() => onSelectNode(parent.id)}
@@ -333,7 +379,9 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
           {/* Children List with Reordering buttons */}
           {node.children && node.children.length > 0 && (
             <div className="space-y-1.5 pt-1">
-              <span className="text-[10px] font-semibold text-text-muted block font-mono">Children Execution Order:</span>
+              <span className="text-[10px] font-semibold text-text-muted block font-mono">
+                Children Execution Order:
+              </span>
               <div className="space-y-1.5 max-h-36 overflow-y-auto no-scrollbar">
                 {node.children.map((childId, idx) => {
                   const child = treeNodes[childId];
@@ -341,7 +389,10 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
                   if (child) {
                     if (child.name && child.name !== child.type) {
                       childLabel = `${child.type} — ${child.name}`;
-                    } else if (child.category && child.category !== child.type) {
+                    } else if (
+                      child.category &&
+                      child.category !== child.type
+                    ) {
                       childLabel = `${child.category} — ${child.type}`;
                     } else {
                       childLabel = child.name || child.type || childId;
@@ -352,8 +403,10 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
                       key={childId}
                       className="flex items-center justify-between bg-surface-primary px-2.5 py-1.5 rounded-xl border border-border-medium text-xs shadow-2xs"
                     >
-                      <span className="text-[10px] font-mono text-text-muted mr-1.5 font-bold">{idx + 1}.</span>
-                      <span 
+                      <span className="text-[10px] font-mono text-text-muted mr-1.5 font-bold">
+                        {idx + 1}.
+                      </span>
+                      <span
                         onClick={() => onSelectNode(childId)}
                         className="truncate flex-1 font-semibold text-text-primary hover:text-accent-primary cursor-pointer"
                         title={childLabel}
@@ -398,50 +451,63 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
           </div>
 
           <div className="space-y-2">
-            {Object.entries(node.inputPorts || {}).map(([portName, portVal]) => {
-              const isBB = portVal.startsWith('{') && portVal.endsWith('}');
-              return (
-                <div key={portName} className="p-2.5 rounded-xl bg-surface-primary border border-border-medium space-y-1.5 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[11px] font-bold text-accent-primary">{portName}</span>
-                    <div className="flex items-center gap-1">
-                      <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${
-                        isBB 
-                          ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200' 
-                          : 'bg-surface-secondary text-text-muted border-border-subtle'
-                      }`}>
-                        {isBB ? 'Blackboard' : 'Literal'}
+            {Object.entries(node.inputPorts || {}).map(
+              ([portName, portVal]) => {
+                const isBB = portVal.startsWith("{") && portVal.endsWith("}");
+                return (
+                  <div
+                    key={portName}
+                    className="p-2.5 rounded-xl bg-surface-primary border border-border-medium space-y-1.5 shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[11px] font-bold text-accent-primary">
+                        {portName}
                       </span>
-                      <button
-                        onClick={() => handleDeleteInputPort(portName)}
-                        className="p-1 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950 text-rose-500 hover:text-rose-600 transition-colors cursor-pointer"
-                        title={`Remove port ${portName}`}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${
+                            isBB
+                              ? "bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200"
+                              : "bg-surface-secondary text-text-muted border-border-subtle"
+                          }`}
+                        >
+                          {isBB ? "Blackboard" : "Literal"}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteInputPort(portName)}
+                          className="p-1 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950 text-rose-500 hover:text-rose-600 transition-colors cursor-pointer"
+                          title={`Remove port ${portName}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
+                    <input
+                      type="text"
+                      value={portVal}
+                      onChange={(e) =>
+                        handleEditInputPort(portName, e.target.value)
+                      }
+                      placeholder="e.g. 5.0 or {target_x}"
+                      className="w-full bg-surface-secondary border border-border-medium rounded-lg px-2.5 py-1 text-xs font-mono text-text-primary outline-none focus:border-accent-primary"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    value={portVal}
-                    onChange={(e) => handleEditInputPort(portName, e.target.value)}
-                    placeholder='e.g. 5.0 or {target_x}'
-                    className="w-full bg-surface-secondary border border-border-medium rounded-lg px-2.5 py-1 text-xs font-mono text-text-primary outline-none focus:border-accent-primary"
-                  />
-                </div>
-              );
-            })}
+                );
+              },
+            )}
 
             {/* Add Input Port Form */}
             <div className="p-2.5 rounded-xl bg-surface-primary/80 border border-border-medium space-y-2 shadow-2xs">
-              <span className="text-[10px] font-mono text-text-muted uppercase font-bold block">Add Input Port</span>
+              <span className="text-[10px] font-mono text-text-muted uppercase font-bold block">
+                Add Input Port
+              </span>
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"
                   placeholder="Port name"
                   value={newInPortName}
                   onChange={(e) => setNewInPortName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddInputPort()}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddInputPort()}
                   className="w-1/2 bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-[11px] font-mono text-text-primary outline-none focus:border-accent-primary"
                 />
                 <input
@@ -449,7 +515,7 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
                   placeholder="Value / {bb}"
                   value={newInPortVal}
                   onChange={(e) => setNewInPortVal(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddInputPort()}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddInputPort()}
                   className="w-1/2 bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-[11px] font-mono text-text-primary outline-none focus:border-accent-primary"
                 />
                 <button
@@ -468,7 +534,8 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
         <div className="bg-surface-secondary/70 p-3.5 rounded-2xl border border-border-medium space-y-3 shadow-xs">
           <div className="flex items-center justify-between pb-2 border-b border-border-subtle/80">
             <span className="text-xs font-bold text-text-primary uppercase tracking-wide font-mono flex items-center gap-1.5">
-              <ArrowRight className="w-3.5 h-3.5 text-emerald-500" /> Output Ports
+              <ArrowRight className="w-3.5 h-3.5 text-emerald-500" /> Output
+              Ports
             </span>
             <span className="text-[10px] font-mono text-text-muted px-2 py-0.5 rounded-md bg-surface-primary border border-border-subtle">
               {Object.keys(node.outputPorts || {}).length}
@@ -476,40 +543,51 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
           </div>
 
           <div className="space-y-2">
-            {Object.entries(node.outputPorts || {}).map(([portName, portVal]) => {
-              return (
-                <div key={portName} className="p-2.5 rounded-xl bg-surface-primary border border-border-medium space-y-1.5 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{portName}</span>
-                    <button
-                      onClick={() => handleDeleteOutputPort(portName)}
-                      className="p-1 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950 text-rose-500 hover:text-rose-600 transition-colors cursor-pointer"
-                      title={`Remove output port ${portName}`}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+            {Object.entries(node.outputPorts || {}).map(
+              ([portName, portVal]) => {
+                return (
+                  <div
+                    key={portName}
+                    className="p-2.5 rounded-xl bg-surface-primary border border-border-medium space-y-1.5 shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        {portName}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteOutputPort(portName)}
+                        className="p-1 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950 text-rose-500 hover:text-rose-600 transition-colors cursor-pointer"
+                        title={`Remove output port ${portName}`}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={portVal}
+                      onChange={(e) =>
+                        handleEditOutputPort(portName, e.target.value)
+                      }
+                      placeholder="e.g. {result}"
+                      className="w-full bg-surface-secondary border border-border-medium rounded-lg px-2.5 py-1 text-xs font-mono text-text-primary outline-none focus:border-accent-primary"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    value={portVal}
-                    onChange={(e) => handleEditOutputPort(portName, e.target.value)}
-                    placeholder='e.g. {result}'
-                    className="w-full bg-surface-secondary border border-border-medium rounded-lg px-2.5 py-1 text-xs font-mono text-text-primary outline-none focus:border-accent-primary"
-                  />
-                </div>
-              );
-            })}
+                );
+              },
+            )}
 
             {/* Add Output Port Form */}
             <div className="p-2.5 rounded-xl bg-surface-primary/80 border border-border-medium space-y-2 shadow-2xs">
-              <span className="text-[10px] font-mono text-text-muted uppercase font-bold block">Add Output Port</span>
+              <span className="text-[10px] font-mono text-text-muted uppercase font-bold block">
+                Add Output Port
+              </span>
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"
                   placeholder="Port name"
                   value={newOutPortName}
                   onChange={(e) => setNewOutPortName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddOutputPort()}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddOutputPort()}
                   className="w-1/2 bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-[11px] font-mono text-text-primary outline-none focus:border-accent-primary"
                 />
                 <input
@@ -517,7 +595,7 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
                   placeholder="Target {key}"
                   value={newOutPortVal}
                   onChange={(e) => setNewOutPortVal(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddOutputPort()}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddOutputPort()}
                   className="w-1/2 bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-[11px] font-mono text-text-primary outline-none focus:border-accent-primary"
                 />
                 <button
@@ -545,8 +623,13 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
 
           <div className="space-y-2">
             {Object.entries(node.attributes || {}).map(([attrKey, attrVal]) => (
-              <div key={attrKey} className="flex items-center gap-2 bg-surface-primary p-2 rounded-xl border border-border-medium shadow-2xs">
-                <span className="font-mono text-[11px] text-text-muted font-bold truncate max-w-[80px]">{attrKey}=</span>
+              <div
+                key={attrKey}
+                className="flex items-center gap-2 bg-surface-primary p-2 rounded-xl border border-border-medium shadow-2xs"
+              >
+                <span className="font-mono text-[11px] text-text-muted font-bold truncate max-w-[80px]">
+                  {attrKey}=
+                </span>
                 <input
                   type="text"
                   value={attrVal}
@@ -565,14 +648,16 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
 
             {/* Add Attribute Form */}
             <div className="p-2.5 rounded-xl bg-surface-primary/80 border border-border-medium space-y-2 shadow-2xs">
-              <span className="text-[10px] font-mono text-text-muted uppercase font-bold block">Add Attribute</span>
+              <span className="text-[10px] font-mono text-text-muted uppercase font-bold block">
+                Add Attribute
+              </span>
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"
                   placeholder="attr_name"
                   value={newAttrKey}
                   onChange={(e) => setNewAttrKey(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddAttribute()}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddAttribute()}
                   className="w-1/2 bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-[11px] font-mono text-text-primary outline-none focus:border-accent-primary"
                 />
                 <input
@@ -580,7 +665,7 @@ export const BTEditorInspector: React.FC<BTEditorInspectorProps> = ({
                   placeholder="value"
                   value={newAttrVal}
                   onChange={(e) => setNewAttrVal(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddAttribute()}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddAttribute()}
                   className="w-1/2 bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-[11px] font-mono text-text-primary outline-none focus:border-accent-primary"
                 />
                 <button

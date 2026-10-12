@@ -1,14 +1,26 @@
-import { BTTreeModel, RecordingSession, RecordingSnapshot, TransitionEvent } from '../../types/bt';
-import { compactRecordingRecords } from './recordingCompactor';
+import {
+  BTTreeModel,
+  RecordingSession,
+  RecordingSnapshot,
+  TransitionEvent,
+} from "../../types/bt";
+import { compactRecordingRecords } from "./recordingCompactor";
 import {
   RecordingSessionMetadata,
   RecordingStorageAdapter,
   RecordingStorageRecord,
-} from './recordingStorage';
+} from "./recordingStorage";
 
 interface ElectronRecordingStorageBridge {
-  startSession(sessionId: string, initialTrees: BTTreeModel[], metadata: RecordingSessionMetadata): Promise<void>;
-  appendBatch(sessionId: string, records: RecordingStorageRecord[]): Promise<void>;
+  startSession(
+    sessionId: string,
+    initialTrees: BTTreeModel[],
+    metadata: RecordingSessionMetadata,
+  ): Promise<void>;
+  appendBatch(
+    sessionId: string,
+    records: RecordingStorageRecord[],
+  ): Promise<void>;
   finalize(sessionId: string, finalTrees?: BTTreeModel[]): Promise<string>;
   readRecords(sessionId: string): Promise<RecordingStorageRecord[]>;
   deleteSession(sessionId: string): Promise<void>;
@@ -16,10 +28,15 @@ interface ElectronRecordingStorageBridge {
 }
 
 const getBridge = (): ElectronRecordingStorageBridge => {
-  const bridge = (globalThis as { window?: { electronAPI?: { recordingStorage?: ElectronRecordingStorageBridge } } })
-    .window?.electronAPI?.recordingStorage;
+  const bridge = (
+    globalThis as {
+      window?: {
+        electronAPI?: { recordingStorage?: ElectronRecordingStorageBridge };
+      };
+    }
+  ).window?.electronAPI?.recordingStorage;
   if (!bridge) {
-    throw new Error('Electron recording storage is unavailable');
+    throw new Error("Electron recording storage is unavailable");
   }
   return bridge;
 };
@@ -46,16 +63,16 @@ export class ElectronRecordingStorage implements RecordingStorageAdapter {
   }
 
   appendEvent(event: TransitionEvent): void {
-    this.enqueue({ kind: 'event', event });
+    this.enqueue({ kind: "event", event });
   }
 
   appendSnapshot(snapshot: RecordingSnapshot): void {
-    this.enqueue({ kind: 'snapshot', snapshot });
+    this.enqueue({ kind: "snapshot", snapshot });
   }
 
   async finalize(finalTrees?: BTTreeModel[]): Promise<RecordingSession | null> {
     if (!this.sessionId) {
-      throw new Error('Cannot finalize recording without an active session');
+      throw new Error("Cannot finalize recording without an active session");
     }
     const sessionId = this.sessionId;
     while (this.pendingRecords.length > 0 || this.flushPromise) {
@@ -105,7 +122,12 @@ export class ElectronRecordingStorage implements RecordingStorageAdapter {
   /**
    * Returns record counts directly from persistent disk storage.
    */
-  async getRecordCounts(sessionId?: string): Promise<{ events: number; snapshots: number; executions: number; total: number }> {
+  async getRecordCounts(sessionId?: string): Promise<{
+    events: number;
+    snapshots: number;
+    executions: number;
+    total: number;
+  }> {
     const targetId = sessionId || this.sessionId;
     if (!targetId) return { events: 0, snapshots: 0, executions: 0, total: 0 };
     while (this.pendingRecords.length > 0 || this.flushPromise) {
@@ -115,8 +137,8 @@ export class ElectronRecordingStorage implements RecordingStorageAdapter {
     let events = 0;
     let snapshots = 0;
     for (const r of records) {
-      if (r.kind === 'event') events++;
-      else if (r.kind === 'snapshot') snapshots++;
+      if (r.kind === "event") events++;
+      else if (r.kind === "snapshot") snapshots++;
     }
     return { events, snapshots, executions: 0, total: records.length };
   }
@@ -124,13 +146,20 @@ export class ElectronRecordingStorage implements RecordingStorageAdapter {
   /**
    * Reads a bounded slice of events directly from disk.
    */
-  async readEventRange(sessionId: string, startIndex: number, count: number): Promise<TransitionEvent[]> {
+  async readEventRange(
+    sessionId: string,
+    startIndex: number,
+    count: number,
+  ): Promise<TransitionEvent[]> {
     while (this.pendingRecords.length > 0 || this.flushPromise) {
       await this.flush();
     }
     const records = await getBridge().readRecords(sessionId);
     return records
-      .filter((r): r is Extract<RecordingStorageRecord, { kind: 'event' }> => r.kind === 'event')
+      .filter(
+        (r): r is Extract<RecordingStorageRecord, { kind: "event" }> =>
+          r.kind === "event",
+      )
       .slice(startIndex, startIndex + count)
       .map((r) => r.event);
   }
@@ -144,7 +173,7 @@ export class ElectronRecordingStorage implements RecordingStorageAdapter {
 
   private enqueue(record: RecordingStorageRecord): void {
     if (!this.sessionId) {
-      throw new Error('Cannot append to recording without an active session');
+      throw new Error("Cannot append to recording without an active session");
     }
     this.pendingRecords.push(record);
     if (this.pendingRecords.length >= this.batchSize) {
@@ -167,7 +196,8 @@ export class ElectronRecordingStorage implements RecordingStorageAdapter {
       this.flushTimeoutId = null;
     }
     if (this.flushPromise) return this.flushPromise;
-    if (!this.sessionId || this.pendingRecords.length === 0) return Promise.resolve();
+    if (!this.sessionId || this.pendingRecords.length === 0)
+      return Promise.resolve();
 
     const sessionId = this.sessionId;
     const records = this.pendingRecords;

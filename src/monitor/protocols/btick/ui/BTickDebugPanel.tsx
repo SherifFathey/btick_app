@@ -1,21 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Zap,
   CheckCircle2,
   XCircle,
   PlayCircle,
   MinusCircle,
-  RotateCcw
-} from 'lucide-react';
-import { BTNodeModel, BTTreeModel } from '../../../types/bt';
-import { DelayInputControl } from '../../../components/DelayInputControl';
+  RotateCcw,
+} from "lucide-react";
+import { BTNodeModel, BTTreeModel } from "../../../types/bt";
+import { DelayInputControl } from "../../../components/DelayInputControl";
 
 export interface BTickDebugPanelProps {
   node: BTNodeModel;
   tree: BTTreeModel | null;
   onToggleBreakpoint?: (treeId: string, uid: number, once?: boolean) => void;
   onSetBreakpointOnce?: (treeId: string, uid: number, once: boolean) => void;
-  onInjectFault?: (treeId: string, uid: number, mode: string, delayMs?: number, once?: boolean) => void;
+  onInjectFault?: (
+    treeId: string,
+    uid: number,
+    mode: string,
+    delayMs?: number,
+    once?: boolean,
+  ) => void;
   onSetFaultOnce?: (treeId: string, uid: number, once: boolean) => void;
   onClearFault?: (treeId: string, uid: number) => void;
   onResume?: (treeId?: string) => void;
@@ -35,8 +41,12 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
   onForceSuccess,
   onForceFailure,
 }) => {
-  const [delayInput, setDelayInput] = useState<number>(node.fault_delay_ms || 1000);
-  const [breakpointOnce, setBreakpointOnce] = useState<boolean>(node.breakpoint_once || false);
+  const [delayInput, setDelayInput] = useState<number>(
+    node.fault_delay_ms || 1000,
+  );
+  const [breakpointOnce, setBreakpointOnce] = useState<boolean>(
+    node.breakpoint_once || false,
+  );
   const [faultOnce, setFaultOnce] = useState<boolean>(node.fault_once || false);
 
   React.useEffect(() => {
@@ -76,17 +86,23 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
                   onSetBreakpointOnce?.(treeId, node.uid, newOnce);
                 }
               }}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium cursor-pointer transition-all border select-none ${breakpointOnce
-                ? 'bg-state-running-bg border-state-running-border text-state-running-text font-bold shadow-2xs'
-                : 'bg-surface-primary border-border-subtle text-text-muted hover:bg-surface-hover hover:text-text-primary'
-                }`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium cursor-pointer transition-all border select-none ${
+                breakpointOnce
+                  ? "bg-state-running-bg border-state-running-border text-state-running-text font-bold shadow-2xs"
+                  : "bg-surface-primary border-border-subtle text-text-muted hover:bg-surface-hover hover:text-text-primary"
+              }`}
               title="Once: Automatically remove breakpoint after it triggers 1 time"
             >
-              <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${breakpointOnce
-                ? 'border-state-running-border bg-state-running-border'
-                : 'border-border-medium bg-surface-secondary'
-                }`}>
-                {breakpointOnce && <span className="w-1 h-1 rounded-full bg-white block" />}
+              <div
+                className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                  breakpointOnce
+                    ? "border-state-running-border bg-state-running-border"
+                    : "border-border-medium bg-surface-secondary"
+                }`}
+              >
+                {breakpointOnce && (
+                  <span className="w-1 h-1 rounded-full bg-white block" />
+                )}
               </div>
               <span>Once</span>
             </div>
@@ -100,17 +116,20 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
                 onToggleBreakpoint?.(treeId, node.uid, breakpointOnce);
               }
             }}
-            className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${node.is_breakpoint
-              ? 'bg-rose-100 dark:bg-rose-950 hover:bg-rose-200 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-700 font-bold'
-              : 'bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium'
-              }`}
+            className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+              node.is_breakpoint
+                ? "bg-rose-100 dark:bg-rose-950 hover:bg-rose-200 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-700 font-bold"
+                : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium"
+            }`}
           >
             {node.is_breakpoint ? (
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 mr-0.5" />
             ) : (
               <span className="w-2.5 h-2.5 rounded-full border border-border-medium bg-surface-secondary mr-0.5" />
             )}
-            <span>{node.is_breakpoint ? 'Remove Breakpoint' : 'Set Breakpoint'}</span>
+            <span>
+              {node.is_breakpoint ? "Remove Breakpoint" : "Set Breakpoint"}
+            </span>
           </button>
         </div>
       </div>
@@ -129,21 +148,28 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
               const newOnce = !faultOnce;
               setFaultOnce(newOnce);
               const treeId = tree?.tree_id;
-              if (treeId && node.fault_mode && node.fault_mode !== 'NONE' && node.uid) {
+              if (
+                treeId &&
+                node.fault_mode &&
+                node.fault_mode !== "NONE" &&
+                node.uid
+              ) {
                 onSetFaultOnce?.(treeId, node.uid, newOnce);
               }
             }}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium cursor-pointer transition-all border select-none ${faultOnce
-              ? 'bg-accent-subtle dark:bg-purple-950 border-accent-border dark:border-purple-700 text-accent-hover dark:text-purple-300 font-bold shadow-2xs'
-              : 'bg-surface-primary border-border-subtle text-text-muted hover:bg-surface-hover hover:text-text-primary'
-              }`}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium cursor-pointer transition-all border select-none ${
+              faultOnce
+                ? "bg-accent-subtle dark:bg-purple-950 border-accent-border dark:border-purple-700 text-accent-hover dark:text-purple-300 font-bold shadow-2xs"
+                : "bg-surface-primary border-border-subtle text-text-muted hover:bg-surface-hover hover:text-text-primary"
+            }`}
             title="Override once: Apply fault injection for one tick only"
           >
             <div
-              className={`w-3 h-3 rounded-full border flex items-center justify-center ${faultOnce
-                ? 'border-accent-primary bg-accent-primary dark:border-purple-500 dark:bg-purple-500'
-                : 'border-border-medium bg-surface-secondary'
-                }`}
+              className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                faultOnce
+                  ? "border-accent-primary bg-accent-primary dark:border-purple-500 dark:bg-purple-500"
+                  : "border-border-medium bg-surface-secondary"
+              }`}
             >
               {faultOnce && (
                 <span className="w-1 h-1 rounded-full bg-white block" />
@@ -158,13 +184,20 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
             onClick={() => {
               const treeId = tree?.tree_id;
               if (treeId && node.uid) {
-                onInjectFault?.(treeId, node.uid, 'FORCE_SUCCESS', undefined, faultOnce);
+                onInjectFault?.(
+                  treeId,
+                  node.uid,
+                  "FORCE_SUCCESS",
+                  undefined,
+                  faultOnce,
+                );
               }
             }}
-            className={`py-1.5 px-2.5 rounded-xl font-semibold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-2xs active:scale-95 ${node.fault_mode === 'FORCE_SUCCESS'
-              ? 'bg-state-success-bg text-state-success-text border-state-success-border font-bold'
-              : 'bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium'
-              }`}
+            className={`py-1.5 px-2.5 rounded-xl font-semibold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+              node.fault_mode === "FORCE_SUCCESS"
+                ? "bg-state-success-bg text-state-success-text border-state-success-border font-bold"
+                : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium"
+            }`}
             title="Force this node to immediately return SUCCESS (bypassing action)"
           >
             <CheckCircle2 className="w-3 h-3 text-state-success-text shrink-0" />
@@ -175,13 +208,20 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
             onClick={() => {
               const treeId = tree?.tree_id;
               if (treeId && node.uid) {
-                onInjectFault?.(treeId, node.uid, 'FORCE_FAILURE', undefined, faultOnce);
+                onInjectFault?.(
+                  treeId,
+                  node.uid,
+                  "FORCE_FAILURE",
+                  undefined,
+                  faultOnce,
+                );
               }
             }}
-            className={`py-1.5 px-2.5 rounded-xl font-semibold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-2xs active:scale-95 ${node.fault_mode === 'FORCE_FAILURE'
-              ? 'bg-state-failure-bg text-state-failure-text border-state-failure-border font-bold'
-              : 'bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium'
-              }`}
+            className={`py-1.5 px-2.5 rounded-xl font-semibold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+              node.fault_mode === "FORCE_FAILURE"
+                ? "bg-state-failure-bg text-state-failure-text border-state-failure-border font-bold"
+                : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium"
+            }`}
             title="Force this node to immediately return FAILURE when ticked"
           >
             <XCircle className="w-3 h-3 text-state-failure-text shrink-0" />
@@ -192,13 +232,20 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
             onClick={() => {
               const treeId = tree?.tree_id;
               if (treeId && node.uid) {
-                onInjectFault?.(treeId, node.uid, 'FORCE_RUNNING', undefined, faultOnce);
+                onInjectFault?.(
+                  treeId,
+                  node.uid,
+                  "FORCE_RUNNING",
+                  undefined,
+                  faultOnce,
+                );
               }
             }}
-            className={`py-1.5 px-2.5 rounded-xl font-semibold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-2xs active:scale-95 ${node.fault_mode === 'FORCE_RUNNING'
-              ? 'bg-state-running-bg text-state-running-text border-state-running-border font-bold'
-              : 'bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium'
-              }`}
+            className={`py-1.5 px-2.5 rounded-xl font-semibold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+              node.fault_mode === "FORCE_RUNNING"
+                ? "bg-state-running-bg text-state-running-text border-state-running-border font-bold"
+                : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium"
+            }`}
             title="Blocks the tree's ticking thread until cleared; the node does not return RUNNING."
           >
             <PlayCircle className="w-3 h-3 text-state-running-text shrink-0" />
@@ -209,13 +256,20 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
             onClick={() => {
               const treeId = tree?.tree_id;
               if (treeId && node.uid) {
-                onInjectFault?.(treeId, node.uid, 'FORCE_SKIPPED', undefined, faultOnce);
+                onInjectFault?.(
+                  treeId,
+                  node.uid,
+                  "FORCE_SKIPPED",
+                  undefined,
+                  faultOnce,
+                );
               }
             }}
-            className={`py-1.5 px-2.5 rounded-xl font-semibold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-2xs active:scale-95 ${node.fault_mode === 'FORCE_SKIPPED'
-              ? 'bg-surface-hover text-text-primary border-border-medium font-bold'
-              : 'bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium'
-              }`}
+            className={`py-1.5 px-2.5 rounded-xl font-semibold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+              node.fault_mode === "FORCE_SKIPPED"
+                ? "bg-surface-hover text-text-primary border-border-medium font-bold"
+                : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-medium"
+            }`}
             title="Force this node to return SKIPPED status"
           >
             <MinusCircle className="w-3 h-3 text-text-muted shrink-0" />
@@ -231,7 +285,13 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
             onApply={() => {
               const treeId = tree?.tree_id;
               if (treeId && node.uid) {
-                onInjectFault?.(treeId, node.uid, 'DELAY', delayInput, faultOnce);
+                onInjectFault?.(
+                  treeId,
+                  node.uid,
+                  "DELAY",
+                  delayInput,
+                  faultOnce,
+                );
               }
             }}
             applyLabel={`Apply Delay (${delayInput >= 1000 ? `${(delayInput / 1000).toFixed(delayInput % 1000 === 0 ? 1 : 2)}s` : `${delayInput}ms`})`}
@@ -239,7 +299,7 @@ export const BTickDebugPanel: React.FC<BTickDebugPanelProps> = ({
         </div>
 
         {/* Reset / Clear Fault Override button */}
-        {node.fault_mode && node.fault_mode !== 'NONE' && (
+        {node.fault_mode && node.fault_mode !== "NONE" && (
           <button
             onClick={() => {
               const treeId = tree?.tree_id;

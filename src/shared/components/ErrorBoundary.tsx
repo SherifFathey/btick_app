@@ -1,5 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { Component, ErrorInfo, ReactNode } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[BTick ErrorBoundary caught]:', error, errorInfo);
+    console.error("[BTick ErrorBoundary caught]:", error, errorInfo);
   }
 
   public handleReset = () => {
@@ -38,10 +38,11 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-[#c8d3e0] mb-1">
-              {this.props.fallbackTitle || 'Visualization Error'}
+              {this.props.fallbackTitle || "Visualization Error"}
             </h3>
             <p className="text-xs text-rose-300/90 mb-4 font-mono break-all bg-[#0b0f1a] p-2 rounded-lg border border-[#2f3e56] w-full text-left">
-              {this.state.error?.message || 'An unexpected rendering error occurred.'}
+              {this.state.error?.message ||
+                "An unexpected rendering error occurred."}
             </p>
             <button
               onClick={this.handleReset}
@@ -58,4 +59,3 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-

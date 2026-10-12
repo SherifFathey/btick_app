@@ -26,7 +26,12 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { BTTreeModel, BTNodeModel, TreeOrientation, EdgePathMode } from "../types/bt";
+import {
+  BTTreeModel,
+  BTNodeModel,
+  TreeOrientation,
+  EdgePathMode,
+} from "../types/bt";
 import { BTNodeComponent } from "./BTNodeComponent";
 import { BTMonitorEdge } from "./BTMonitorEdge";
 import { DelayInputControl } from "./DelayInputControl";
@@ -90,7 +95,9 @@ interface BTGraphProps {
   viewport?: Viewport;
   onViewportChange?: (viewport: Viewport) => void;
   initialNodePositions?: Record<string, { x: number; y: number }>;
-  onNodePositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
+  onNodePositionsChange?: (
+    positions: Record<string, { x: number; y: number }>,
+  ) => void;
   initialCollapsedNodeIds?: string[];
   onCollapsedNodeIdsChange?: (nodeIds: string[]) => void;
   pathMode?: EdgePathMode;
@@ -332,7 +339,10 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       container.querySelector<HTMLElement>(".react-flow") ||
       container;
     if (pane) {
-      if (!pane.hasAttribute("tabIndex") || Number(pane.getAttribute("tabIndex")) < 0) {
+      if (
+        !pane.hasAttribute("tabIndex") ||
+        Number(pane.getAttribute("tabIndex")) < 0
+      ) {
         pane.setAttribute("tabIndex", "0");
       }
       pane.focus({ preventScroll: true });
@@ -372,39 +382,43 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [internalAutoCenter, setInternalAutoCenter] = useState(false);
-  const isAutoCenter = propAutoCenter !== undefined ? propAutoCenter : internalAutoCenter;
+  const isAutoCenter =
+    propAutoCenter !== undefined ? propAutoCenter : internalAutoCenter;
   const autoCenterRef = useRef<boolean>(isAutoCenter);
   useEffect(() => {
     autoCenterRef.current = isAutoCenter;
   }, [isAutoCenter]);
-  const [measuredNodeHeights, setMeasuredNodeHeights] = useState<Map<string, number>>(
-    new Map(),
-  );
+  const [measuredNodeHeights, setMeasuredNodeHeights] = useState<
+    Map<string, number>
+  >(new Map());
   const pendingHeightsRef = useRef<Map<string, number>>(new Map());
   const batchTimeoutRef = useRef<any>(null);
 
-  const handleNodeResize = useCallback((nodeId: string, height: number) => {
-    updateNodeInternals(nodeId);
-    pendingHeightsRef.current.set(nodeId, height);
+  const handleNodeResize = useCallback(
+    (nodeId: string, height: number) => {
+      updateNodeInternals(nodeId);
+      pendingHeightsRef.current.set(nodeId, height);
 
-    if (batchTimeoutRef.current === null) {
-      batchTimeoutRef.current = setTimeout(() => {
-        batchTimeoutRef.current = null;
-        setMeasuredNodeHeights((previous) => {
-          let hasChanges = false;
-          const next = new Map(previous);
-          pendingHeightsRef.current.forEach((h, id) => {
-            if (next.get(id) !== h) {
-              next.set(id, h);
-              hasChanges = true;
-            }
+      if (batchTimeoutRef.current === null) {
+        batchTimeoutRef.current = setTimeout(() => {
+          batchTimeoutRef.current = null;
+          setMeasuredNodeHeights((previous) => {
+            let hasChanges = false;
+            const next = new Map(previous);
+            pendingHeightsRef.current.forEach((h, id) => {
+              if (next.get(id) !== h) {
+                next.set(id, h);
+                hasChanges = true;
+              }
+            });
+            pendingHeightsRef.current.clear();
+            return hasChanges ? next : previous;
           });
-          pendingHeightsRef.current.clear();
-          return hasChanges ? next : previous;
-        });
-      }, 16);
-    }
-  }, [updateNodeInternals]);
+        }, 16);
+      }
+    },
+    [updateNodeInternals],
+  );
 
   useEffect(() => {
     return () => {
@@ -515,8 +529,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       })),
       initialEdges: withPathMode(graph.initialEdges).map((edge) => ({
         ...edge,
-        hidden:
-          hiddenNodes.has(edge.source) || hiddenNodes.has(edge.target),
+        hidden: hiddenNodes.has(edge.source) || hiddenNodes.has(edge.target),
       })),
     };
   }, [
@@ -569,7 +582,10 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         pendingGraphNodesRef.current = null;
         setNodes((currentNodes) => {
           const currentPositions = new Map(
-            currentNodes.map((currentNode) => [currentNode.id, currentNode.position]),
+            currentNodes.map((currentNode) => [
+              currentNode.id,
+              currentNode.position,
+            ]),
           );
           return pendingNodes.map((pendingNode) => ({
             ...pendingNode,
@@ -579,27 +595,32 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                 : currentPositions.get(pendingNode.id) || pendingNode.position,
           }));
         });
-        pendingNodes.forEach((pendingNode) => updateNodeInternals(pendingNode.id));
+        pendingNodes.forEach((pendingNode) =>
+          updateNodeInternals(pendingNode.id),
+        );
       }
     },
     [onNodePositionsChange, setNodes, updateNodeInternals],
   );
 
   // Toggle collapse / expand for subtree nodes
-  const handleToggleCollapse = useCallback((nodeId: string) => {
-    setExpandedNodes((prev) => {
-      const next = new Set(prev);
-      const key = `collapsed_${nodeId}`;
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      updateNodeInternals(nodeId);
-      onCollapsedNodeIdsChange?.([...next]);
-      return next;
-    });
-  }, [onCollapsedNodeIdsChange, updateNodeInternals]);
+  const handleToggleCollapse = useCallback(
+    (nodeId: string) => {
+      setExpandedNodes((prev) => {
+        const next = new Set(prev);
+        const key = `collapsed_${nodeId}`;
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.add(key);
+        }
+        updateNodeInternals(nodeId);
+        onCollapsedNodeIdsChange?.([...next]);
+        return next;
+      });
+    },
+    [onCollapsedNodeIdsChange, updateNodeInternals],
+  );
 
   // Reset all dragged positions back to default Dagre tree layout
   const handleResetLayout = useCallback(() => {
@@ -697,13 +718,21 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     () => !tree || !tree.nodes || tree.nodes.length === 0,
   );
 
-  const performExplicitFitView = useCallback((options?: any) => {
-    if (nodes.length === 0) return Promise.resolve(false);
-    console.log('[BTGraph][Viewport] performExplicitFitView executing (fit-view)');
-    const isOptionsObject = options && typeof options === "object" && !("nativeEvent" in options);
-    const fitOptions = isOptionsObject ? { ...DEFAULT_FIT_VIEW_OPTIONS, ...options } : DEFAULT_FIT_VIEW_OPTIONS;
-    return fitViewRef.current(fitOptions);
-  }, [nodes.length]);
+  const performExplicitFitView = useCallback(
+    (options?: any) => {
+      if (nodes.length === 0) return Promise.resolve(false);
+      console.log(
+        "[BTGraph][Viewport] performExplicitFitView executing (fit-view)",
+      );
+      const isOptionsObject =
+        options && typeof options === "object" && !("nativeEvent" in options);
+      const fitOptions = isOptionsObject
+        ? { ...DEFAULT_FIT_VIEW_OPTIONS, ...options }
+        : DEFAULT_FIT_VIEW_OPTIONS;
+      return fitViewRef.current(fitOptions);
+    },
+    [nodes.length],
+  );
 
   const treeSessionKey = useMemo(() => {
     const treeSig = tree
@@ -721,7 +750,13 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       .sort()
       .join(",");
     return `${treeSig}:${activeOrientation}:${activeProtocol}:${layoutRevision}:${measuredHeightsSig}`;
-  }, [tree, activeOrientation, activeProtocol, layoutRevision, measuredNodeHeights]);
+  }, [
+    tree,
+    activeOrientation,
+    activeProtocol,
+    layoutRevision,
+    measuredNodeHeights,
+  ]);
 
   // Request initial fit whenever treeSessionKey changes (initial load, tree change, orientation change, protocol change, or layout reset)
   useEffect(() => {
@@ -955,7 +990,12 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           initialNodes.find((n: Node) => n.id === latestActiveNode!.id);
         if (target) {
           if (isDraggingNodeRef.current) return;
-          console.log('[BTGraph][Viewport] centerOnActiveNode -> setCenter called for', target.id, 'pos:', target.position);
+          console.log(
+            "[BTGraph][Viewport] centerOnActiveNode -> setCenter called for",
+            target.id,
+            "pos:",
+            target.position,
+          );
           setCenter(target.position.x + 120, target.position.y + 40, {
             duration: 350,
           });
@@ -996,7 +1036,9 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       const domWidth =
         container?.clientWidth || container?.getBoundingClientRect().width || 0;
       const domHeight =
-        container?.clientHeight || container?.getBoundingClientRect().height || 0;
+        container?.clientHeight ||
+        container?.getBoundingClientRect().height ||
+        0;
       const rfState = storeApi.getState();
       const effectiveWidth = rfState.width > 0 ? rfState.width : domWidth;
       const effectiveHeight = rfState.height > 0 ? rfState.height : domHeight;
@@ -1048,7 +1090,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       lastFittedTokenRef.current = treeSessionKey;
 
       console.log(
-        '[BTGraph][Viewport] checkAndFit -> calling performExplicitFitView (first priority) for',
+        "[BTGraph][Viewport] checkAndFit -> calling performExplicitFitView (first priority) for",
         treeSessionKey,
       );
       const fitPromise = performExplicitFitView({ duration: 0 });
@@ -1121,14 +1163,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     tryCenter();
     const timer = setTimeout(tryCenter, 80);
     return () => clearTimeout(timer);
-  }, [
-    centerTarget,
-    tree,
-    nodes,
-    initialNodes,
-    setCenter,
-    expandAncestors,
-  ]);
+  }, [centerTarget, tree, nodes, initialNodes, setCenter, expandAncestors]);
 
   // Expand ancestors if selectedNodeId changes without forcing viewport camera jump
   useEffect(() => {
@@ -1344,10 +1379,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 
         <button
           onClick={handleToggleAutoCenter}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer shadow-2xs active:scale-95 ${isAutoCenter
-            ? "bg-accent-primary border-accent-primary font-bold shadow-xs text-white"
-            : "bg-surface-primary/95 border-border-medium hover:bg-surface-hover text-text-primary dark:text-white"
-            }`}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer shadow-2xs active:scale-95 ${
+            isAutoCenter
+              ? "bg-accent-primary border-accent-primary font-bold shadow-xs text-white"
+              : "bg-surface-primary/95 border-border-medium hover:bg-surface-hover text-text-primary dark:text-white"
+          }`}
           title={
             isAutoCenter
               ? "Auto-Center is ON (Click to disable)"
@@ -1359,9 +1395,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           />
           <span
             className={
-              isAutoCenter
-                ? "text-white"
-                : "text-text-primary dark:text-white"
+              isAutoCenter ? "text-white" : "text-text-primary dark:text-white"
             }
           >
             Auto-Center
@@ -1414,7 +1448,10 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         fitView={!viewport}
         fitViewOptions={{ ...DEFAULT_FIT_VIEW_OPTIONS, duration: 0 }}
         onMove={(_, nextViewport) => {
-          console.log('[BTGraph][Viewport] onMove (viewport changed):', nextViewport);
+          console.log(
+            "[BTGraph][Viewport] onMove (viewport changed):",
+            nextViewport,
+          );
           onViewportChange?.(nextViewport);
           if (contextMenu) {
             positionContextMenu(contextMenu.anchorElement);
@@ -1473,9 +1510,15 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 
           <ControlButton
             onClick={() =>
-              onPathModeChange?.(pathMode === "bezier" ? "orthogonal" : "bezier")
+              onPathModeChange?.(
+                pathMode === "bezier" ? "orthogonal" : "bezier",
+              )
             }
-            title={pathMode === "bezier" ? "Switch to Orthogonal Paths" : "Switch to Curved Paths"}
+            title={
+              pathMode === "bezier"
+                ? "Switch to Orthogonal Paths"
+                : "Switch to Curved Paths"
+            }
             className="!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all !w-6 !h-6 !m-0"
           >
             <Waypoints className="w-3.5 h-3.5 text-text-primary" />
@@ -1512,7 +1555,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       </ReactFlow>
 
       {/* Context Menu */}
-      {contextMenu && (
+      {contextMenu &&
         createPortal(
           <div
             ref={contextMenuElementRef}
@@ -1528,14 +1571,15 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
             <div className="px-2.5 py-2 rounded-xl bg-surface-secondary border border-border-medium shadow-2xs flex items-center justify-between gap-1.5 mb-2.5">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${contextMenu.node.status === "SUCCESS"
-                    ? "bg-state-success-border"
-                    : contextMenu.node.status === "FAILURE"
-                      ? "bg-state-failure-border"
-                      : contextMenu.node.status === "RUNNING"
-                        ? "bg-state-running-border"
-                        : "bg-text-muted"
-                    }`}
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    contextMenu.node.status === "SUCCESS"
+                      ? "bg-state-success-border"
+                      : contextMenu.node.status === "FAILURE"
+                        ? "bg-state-failure-border"
+                        : contextMenu.node.status === "RUNNING"
+                          ? "bg-state-running-border"
+                          : "bg-text-muted"
+                  }`}
                 />
                 <span
                   className="font-semibold text-xs text-text-primary truncate"
@@ -1598,17 +1642,19 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                           );
                         }
                       }}
-                      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-xl text-[9px] font-medium cursor-pointer transition-all border select-none ${breakpointOnce
-                        ? "bg-state-running-bg border-state-running-border text-state-running-text font-bold shadow-2xs"
-                        : "bg-surface-primary border-border-subtle text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-                        }`}
+                      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-xl text-[9px] font-medium cursor-pointer transition-all border select-none ${
+                        breakpointOnce
+                          ? "bg-state-running-bg border-state-running-border text-state-running-text font-bold shadow-2xs"
+                          : "bg-surface-primary border-border-subtle text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                      }`}
                       title="Once: Automatically remove breakpoint after it triggers 1 time"
                     >
                       <div
-                        className={`w-3 h-3 rounded-full border flex items-center justify-center ${breakpointOnce
-                          ? "border-state-running-border bg-state-running-border"
-                          : "border-border-medium bg-surface-secondary"
-                          }`}
+                        className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                          breakpointOnce
+                            ? "border-state-running-border bg-state-running-border"
+                            : "border-border-medium bg-surface-secondary"
+                        }`}
                       >
                         {breakpointOnce && (
                           <span className="w-1 h-1 rounded-full bg-white block" />
@@ -1654,7 +1700,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                 <div className="p-3 rounded-xl bg-surface-secondary border border-border-medium shadow-2xs mb-1">
                   <div className="px-0.5 pb-1.5 text-[10px] font-semibold text-text-primary uppercase tracking-wider flex items-center justify-between font-mono">
                     <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-state-fault-text" /> Fault Injection
+                      <Zap className="w-3 h-3 text-state-fault-text" /> Fault
+                      Injection
                     </span>
                     <div
                       onClick={(e) => {
@@ -1674,17 +1721,19 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                           );
                         }
                       }}
-                      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-xl text-[9px] font-medium cursor-pointer transition-all border select-none ${faultOnce
-                        ? "bg-state-fault-bg border-state-fault-border text-state-fault-text font-bold shadow-2xs"
-                        : "bg-surface-primary border-border-subtle text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-                        }`}
+                      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-xl text-[9px] font-medium cursor-pointer transition-all border select-none ${
+                        faultOnce
+                          ? "bg-state-fault-bg border-state-fault-border text-state-fault-text font-bold shadow-2xs"
+                          : "bg-surface-primary border-border-subtle text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                      }`}
                       title="Override once: Apply fault injection for one tick only"
                     >
                       <div
-                        className={`w-3 h-3 rounded-full border flex items-center justify-center ${faultOnce
-                          ? "border-state-fault-border bg-state-fault-border"
-                          : "border-border-medium bg-surface-secondary"
-                          }`}
+                        className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                          faultOnce
+                            ? "border-state-fault-border bg-state-fault-border"
+                            : "border-border-medium bg-surface-secondary"
+                        }`}
                       >
                         {faultOnce && (
                           <span className="w-1 h-1 rounded-full bg-white block" />
@@ -1708,10 +1757,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                         }
                         setContextMenu(null);
                       }}
-                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${contextMenu.node.fault_mode === "FORCE_SUCCESS"
-                        ? "bg-state-success-bg text-state-success-text border-state-success-border font-bold"
-                        : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
-                        }`}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+                        contextMenu.node.fault_mode === "FORCE_SUCCESS"
+                          ? "bg-state-success-bg text-state-success-text border-state-success-border font-bold"
+                          : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
+                      }`}
                       title="Force node to return SUCCESS"
                     >
                       <CheckCircle2 className="w-3 h-3 text-state-success-text shrink-0" />
@@ -1731,10 +1781,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                         }
                         setContextMenu(null);
                       }}
-                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${contextMenu.node.fault_mode === "FORCE_FAILURE"
-                        ? "bg-state-failure-bg text-state-failure-text border-state-failure-border font-bold"
-                        : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
-                        }`}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+                        contextMenu.node.fault_mode === "FORCE_FAILURE"
+                          ? "bg-state-failure-bg text-state-failure-text border-state-failure-border font-bold"
+                          : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
+                      }`}
                       title="Force node to return FAILURE"
                     >
                       <XCircle className="w-3 h-3 text-state-failure-text shrink-0" />
@@ -1756,10 +1807,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                             }
                             setContextMenu(null);
                           }}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${contextMenu.node.fault_mode === "FORCE_RUNNING"
-                            ? "bg-state-running-bg text-state-running-text border-state-running-border font-bold"
-                            : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
-                            }`}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+                            contextMenu.node.fault_mode === "FORCE_RUNNING"
+                              ? "bg-state-running-bg text-state-running-text border-state-running-border font-bold"
+                              : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
+                          }`}
                           title="Blocks the tree's ticking thread until cleared; the node does not return RUNNING."
                         >
                           <Play className="w-3 h-3 text-state-running-text shrink-0" />
@@ -1779,10 +1831,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                             }
                             setContextMenu(null);
                           }}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${contextMenu.node.fault_mode === "FORCE_SKIPPED"
-                            ? "bg-surface-hover text-text-primary border-border-medium font-bold"
-                            : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
-                            }`}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+                            contextMenu.node.fault_mode === "FORCE_SKIPPED"
+                              ? "bg-surface-hover text-text-primary border-border-medium font-bold"
+                              : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
+                          }`}
                           title="Force node to return SKIPPED"
                         >
                           <MinusCircle className="w-3 h-3 text-text-secondary dark:text-text-muted shrink-0" />
@@ -1793,57 +1846,64 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                   </div>
 
                   {/* Delay Injector */}
-                  {activeProtocol !== "groot2" && <div className="mt-1.5 pt-1.5 border-t border-border-subtle">
-                    {!showDelayPicker ? (
-                      <button
-                        type="button"
-                        onClick={() => setShowDelayPicker(true)}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${contextMenu.node.fault_mode === "DELAY"
-                          ? "bg-state-fault-bg text-state-fault-text font-bold border-state-fault-border"
-                          : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
+                  {activeProtocol !== "groot2" && (
+                    <div className="mt-1.5 pt-1.5 border-t border-border-subtle">
+                      {!showDelayPicker ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowDelayPicker(true)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer border shadow-2xs active:scale-95 ${
+                            contextMenu.node.fault_mode === "DELAY"
+                              ? "bg-state-fault-bg text-state-fault-text font-bold border-state-fault-border"
+                              : "bg-surface-primary hover:bg-surface-hover text-text-primary border-border-subtle"
                           }`}
-                        title="Inject artificial delay/sleep before node execution"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="w-3 h-3 text-state-fault-text shrink-0" />
-                          <span>
-                            {contextMenu.node.fault_mode === "DELAY"
-                              ? `Delay (${contextMenu.node.fault_delay_ms || 0}ms)`
-                              : "Inject Delay..."}
+                          title="Inject artificial delay/sleep before node execution"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3 h-3 text-state-fault-text shrink-0" />
+                            <span>
+                              {contextMenu.node.fault_mode === "DELAY"
+                                ? `Delay (${contextMenu.node.fault_delay_ms || 0}ms)`
+                                : "Inject Delay..."}
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-text-secondary dark:text-text-muted">
+                            ▶
                           </span>
+                        </button>
+                      ) : (
+                        <div className="p-2.5 rounded-xl bg-surface-primary border border-border-medium shadow-2xs">
+                          <DelayInputControl
+                            value={delayInput}
+                            onChange={setDelayInput}
+                            onApply={() => {
+                              if (
+                                contextMenu.node.uid &&
+                                onInjectFault &&
+                                tree
+                              ) {
+                                onInjectFault(
+                                  tree.tree_id,
+                                  contextMenu.node.uid,
+                                  "DELAY",
+                                  delayInput,
+                                  faultOnce,
+                                );
+                              }
+                              setContextMenu(null);
+                            }}
+                            onCancel={() => setShowDelayPicker(false)}
+                            applyLabel="Apply"
+                            cancelLabel="Back"
+                          />
                         </div>
-                        <span className="text-[9px] text-text-secondary dark:text-text-muted">
-                          ▶
-                        </span>
-                      </button>
-                    ) : (
-                      <div className="p-2.5 rounded-xl bg-surface-primary border border-border-medium shadow-2xs">
-                        <DelayInputControl
-                          value={delayInput}
-                          onChange={setDelayInput}
-                          onApply={() => {
-                            if (contextMenu.node.uid && onInjectFault && tree) {
-                              onInjectFault(
-                                tree.tree_id,
-                                contextMenu.node.uid,
-                                "DELAY",
-                                delayInput,
-                                faultOnce,
-                              );
-                            }
-                            setContextMenu(null);
-                          }}
-                          onCancel={() => setShowDelayPicker(false)}
-                          applyLabel="Apply"
-                          cancelLabel="Back"
-                        />
-                      </div>
-                    )}
-                  </div>}
+                      )}
+                    </div>
+                  )}
 
                   {/* Clear Fault Button */}
                   {contextMenu.node.fault_mode &&
-                    contextMenu.node.fault_mode !== "NONE" ? (
+                  contextMenu.node.fault_mode !== "NONE" ? (
                     <div className="mt-1.5">
                       <button
                         onClick={() => {
@@ -1864,8 +1924,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
             )}
           </div>,
           document.body,
-        )
-      )}
+        )}
     </div>
   );
 };

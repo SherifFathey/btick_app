@@ -1,7 +1,11 @@
-import { ProtocolSessionState, ProtocolCapabilities, LiveStatusDisplayMode } from '../types';
+import {
+  ProtocolSessionState,
+  ProtocolCapabilities,
+  LiveStatusDisplayMode,
+} from "../types";
 
 export interface BTickSessionState extends ProtocolSessionState {
-  protocol: 'btick';
+  protocol: "btick";
   liveStatusDisplayMode: LiveStatusDisplayMode;
 }
 
@@ -17,15 +21,15 @@ export const BTICK_CAPABILITIES: ProtocolCapabilities = {
 };
 
 export const createInitialBTickSession = (): BTickSessionState => ({
-  protocol: 'btick',
-  name: 'BTick',
+  protocol: "btick",
+  name: "BTick",
   isConnected: false,
   session: {
-    sessionId: 'btick_default_0',
-    executionInstanceId: 'init_0',
+    sessionId: "btick_default_0",
+    executionInstanceId: "init_0",
     startedAt: Date.now(),
     lastHeartbeatAt: 0,
-    connectionStatus: 'DISCONNECTED',
+    connectionStatus: "DISCONNECTED",
     reconnectAttempts: 0,
   },
   treesMap: new Map(),
@@ -52,13 +56,13 @@ export const createInitialBTickSession = (): BTickSessionState => ({
   },
   treeReplays: new Map(),
   treeEvents: new Map(),
-  viewMode: 'focused',
-  orientation: 'vertical',
+  viewMode: "focused",
+  orientation: "vertical",
   filters: {
     showRunning: true,
     showSuccess: true,
     showFailure: true,
     showIdle: true,
   },
-  liveStatusDisplayMode: 'current',
+  liveStatusDisplayMode: "current",
 });

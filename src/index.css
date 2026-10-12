@@ -7,194 +7,194 @@
    ========================================================================== */
 
 :root {
-    /* Surface & Canvas (Light Theme - Neutral gray canvas, white cards pop against it) */
-    --bg-app: #edf0f4;
-    --bg-canvas: #ecedf03b;
-    --canvas-grid-dot: #7c7d7e;
-    --bg-surface-primary: #ffffff;
-    --bg-surface-secondary: #e8ecf1;
-    --bg-surface-tertiary: #dde2e9;
-    --bg-surface-hover: #dde2e9;
-    --bg-surface-active: #cdd5df;
+  /* Surface & Canvas (Light Theme - Neutral gray canvas, white cards pop against it) */
+  --bg-app: #edf0f4;
+  --bg-canvas: #ecedf03b;
+  --canvas-grid-dot: #7c7d7e;
+  --bg-surface-primary: #ffffff;
+  --bg-surface-secondary: #e8ecf1;
+  --bg-surface-tertiary: #dde2e9;
+  --bg-surface-hover: #dde2e9;
+  --bg-surface-active: #cdd5df;
 
-    /* Borders & Dividers */
-    --border-subtle: #e2e8f0;
-    --border-medium: #c8d3e0;
-    --border-strong: #94a3b8;
-    --border-focus: #0284c7;
+  /* Borders & Dividers */
+  --border-subtle: #e2e8f0;
+  --border-medium: #c8d3e0;
+  --border-strong: #94a3b8;
+  --border-focus: #0284c7;
 
-    /* Typography */
-    --text-primary: #0f172a;
-    --text-secondary: #334155;
-    --text-muted: #64748b;
-    --text-inverse: #ffffff;
+  /* Typography */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
 
-    /* Interactive / Brand Accent */
-    --accent-primary: #0284c7;
-    --accent-hover: #0369a1;
-    --accent-subtle: #e0f2fe;
-    --accent-border: #bae6fd;
+  /* Interactive / Brand Accent */
+  --accent-primary: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-subtle: #e0f2fe;
+  --accent-border: #bae6fd;
 
-    /* Execution States (Vibrant, high contrast) */
-    --state-running-text: #92400e;
-    --state-running-bg: #fef0da;
-    --state-running-border: #f59e0b;
+  /* Execution States (Vibrant, high contrast) */
+  --state-running-text: #92400e;
+  --state-running-bg: #fef0da;
+  --state-running-border: #f59e0b;
 
-    --state-success-text: #065f46;
-    --state-success-bg: #dbf5ec;
-    --state-success-border: #10b981;
+  --state-success-text: #065f46;
+  --state-success-bg: #dbf5ec;
+  --state-success-border: #10b981;
 
-    --state-failure-text: #991b1b;
-    --state-failure-bg: #fde2e7;
-    --state-failure-border: #ef4444;
+  --state-failure-text: #991b1b;
+  --state-failure-bg: #fde2e7;
+  --state-failure-border: #ef4444;
 
-    --state-paused-text: #854d0e;
-    --state-paused-bg: #fffbeb;
-    --state-paused-border: #eab308;
+  --state-paused-text: #854d0e;
+  --state-paused-bg: #fffbeb;
+  --state-paused-border: #eab308;
 
-    --state-idle-text: #334155;
-    --state-idle-bg: #f1f5f9;
-    --state-idle-border: #c8d3e0;
+  --state-idle-text: #334155;
+  --state-idle-bg: #f1f5f9;
+  --state-idle-border: #c8d3e0;
 
-    --state-bp-text: #9f1239;
-    --state-bp-bg: #ffe4e6;
-    --state-bp-border: #f43f5e;
+  --state-bp-text: #9f1239;
+  --state-bp-bg: #ffe4e6;
+  --state-bp-border: #f43f5e;
 
-    --state-fault-text: #1e40af;
-    --state-fault-bg: #eff6ff;
-    --state-fault-border: #3b82f6;
+  --state-fault-text: #1e40af;
+  --state-fault-bg: #eff6ff;
+  --state-fault-border: #3b82f6;
 
-    /* Node Categories — white/gray/blue palette only.
+  /* Node Categories — white/gray/blue palette only.
        Action, Condition, Decorator, SubTree use neutral gray cards.
        Control keeps the blue accent to match the brand color. */
-    --cat-action-text: #374151;
-    --cat-action-bg: #f8fafc;
-    --cat-action-border: #cbd5e1;
+  --cat-action-text: #374151;
+  --cat-action-bg: #f8fafc;
+  --cat-action-border: #cbd5e1;
 
-    --cat-condition-text: #374151;
-    --cat-condition-bg: #f8fafc;
-    --cat-condition-border: #cbd5e1;
+  --cat-condition-text: #374151;
+  --cat-condition-bg: #f8fafc;
+  --cat-condition-border: #cbd5e1;
 
-    --cat-control-text: #1e40af;
-    --cat-control-bg: #eff6ff;
-    --cat-control-border: #bfdbfe;
+  --cat-control-text: #1e40af;
+  --cat-control-bg: #eff6ff;
+  --cat-control-border: #bfdbfe;
 
-    --cat-decorator-text: #374151;
-    --cat-decorator-bg: #f8fafc;
-    --cat-decorator-border: #cbd5e1;
+  --cat-decorator-text: #374151;
+  --cat-decorator-bg: #f8fafc;
+  --cat-decorator-border: #cbd5e1;
 
-    --cat-subtree-text: #1e40af;
-    --cat-subtree-bg: #f0f6ff;
-    --cat-subtree-border: #bfdbfe;
+  --cat-subtree-text: #1e40af;
+  --cat-subtree-bg: #f0f6ff;
+  --cat-subtree-border: #bfdbfe;
 }
 
 .dark {
-    /* Surface & Canvas (Dark Theme - Custom Palette: #0b0f1a, #111a2e, #1b2a41, #2f3e56, #c8d3e0) */
-    --bg-app: #0b0f1a;
-    --bg-canvas: #0f131a;
-    --canvas-grid-dot: #1c2a3d;
-    --bg-surface-primary: #111a2e;
-    --bg-surface-secondary: #1b2a41;
-    --bg-surface-tertiary: #1b2a41;
-    --bg-surface-hover: #243754;
-    --bg-surface-active: #2f3e56;
+  /* Surface & Canvas (Dark Theme - Custom Palette: #0b0f1a, #111a2e, #1b2a41, #2f3e56, #c8d3e0) */
+  --bg-app: #0b0f1a;
+  --bg-canvas: #0f131a;
+  --canvas-grid-dot: #1c2a3d;
+  --bg-surface-primary: #111a2e;
+  --bg-surface-secondary: #1b2a41;
+  --bg-surface-tertiary: #1b2a41;
+  --bg-surface-hover: #243754;
+  --bg-surface-active: #2f3e56;
 
-    /* Borders & Dividers */
-    --border-subtle: #1b2a41;
-    --border-medium: #2f3e56;
-    --border-strong: #3e5270;
-    --border-focus: #38bdf8;
+  /* Borders & Dividers */
+  --border-subtle: #1b2a41;
+  --border-medium: #2f3e56;
+  --border-strong: #3e5270;
+  --border-focus: #38bdf8;
 
-    /* Typography */
-    --text-primary: #c8d3e0;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --text-inverse: #0b0f1a;
+  /* Typography */
+  --text-primary: #c8d3e0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #0b0f1a;
 
-    /* Interactive / Brand Accent */
-    --accent-primary: #0284c7;
-    --accent-hover: #0369a1;
-    --accent-subtle: #112644;
-    --accent-border: #0369a1;
+  /* Interactive / Brand Accent */
+  --accent-primary: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-subtle: #112644;
+  --accent-border: #0369a1;
 
-    /* Execution States (Clean, vivid, non-washed out) */
-    --state-running-text: #fef08a;
-    --state-running-bg: #451a03;
-    --state-running-border: #f59e0b;
+  /* Execution States (Clean, vivid, non-washed out) */
+  --state-running-text: #fef08a;
+  --state-running-bg: #451a03;
+  --state-running-border: #f59e0b;
 
-    --state-success-text: #a7f3d0;
-    --state-success-bg: #064e3b;
-    --state-success-border: #10b981;
+  --state-success-text: #a7f3d0;
+  --state-success-bg: #064e3b;
+  --state-success-border: #10b981;
 
-    --state-failure-text: #fecdd3;
-    --state-failure-bg: #4c0519;
-    --state-failure-border: #f43f5e;
+  --state-failure-text: #fecdd3;
+  --state-failure-bg: #4c0519;
+  --state-failure-border: #f43f5e;
 
-    --state-paused-text: #fef08a;
-    --state-paused-bg: #422006;
-    --state-paused-border: #eab308;
+  --state-paused-text: #fef08a;
+  --state-paused-bg: #422006;
+  --state-paused-border: #eab308;
 
-    --state-idle-text: #c8d3e0;
-    --state-idle-bg: #1b2a41;
-    --state-idle-border: #2f3e56;
+  --state-idle-text: #c8d3e0;
+  --state-idle-bg: #1b2a41;
+  --state-idle-border: #2f3e56;
 
-    --state-bp-text: #fda4af;
-    --state-bp-bg: #4c0519;
-    --state-bp-border: #f43f5e;
+  --state-bp-text: #fda4af;
+  --state-bp-bg: #4c0519;
+  --state-bp-border: #f43f5e;
 
-    --state-fault-text: #ddd6fe;
-    --state-fault-bg: #2e1065;
-    --state-fault-border: #8b5cf6;
+  --state-fault-text: #ddd6fe;
+  --state-fault-bg: #2e1065;
+  --state-fault-border: #8b5cf6;
 
-    /* Node Categories */
-    --cat-action-text: #fde68a;
-    --cat-action-bg: #78350f;
-    --cat-action-border: #d97706;
+  /* Node Categories */
+  --cat-action-text: #fde68a;
+  --cat-action-bg: #78350f;
+  --cat-action-border: #d97706;
 
-    --cat-condition-text: #a7f3d0;
-    --cat-condition-bg: #064e3b;
-    --cat-condition-border: #059669;
+  --cat-condition-text: #a7f3d0;
+  --cat-condition-bg: #064e3b;
+  --cat-condition-border: #059669;
 
-    --cat-control-text: #bae6fd;
-    --cat-control-bg: #1e3a8a;
-    --cat-control-border: #2563eb;
+  --cat-control-text: #bae6fd;
+  --cat-control-bg: #1e3a8a;
+  --cat-control-border: #2563eb;
 
-    --cat-decorator-text: #e9d5ff;
-    --cat-decorator-bg: #581c87;
-    --cat-decorator-border: #7e22ce;
+  --cat-decorator-text: #e9d5ff;
+  --cat-decorator-bg: #581c87;
+  --cat-decorator-border: #7e22ce;
 
-    --cat-subtree-text: #c8d3e0;
-    --cat-subtree-bg: #1b2a41;
-    --cat-subtree-border: #2f3e56;
+  --cat-subtree-text: #c8d3e0;
+  --cat-subtree-bg: #1b2a41;
+  --cat-subtree-border: #2f3e56;
 }
 
 @layer base {
-    body {
-        background-color: var(--bg-app);
-        color: var(--text-primary);
-        @apply antialiased overflow-hidden font-sans;
-        user-select: text;
-        -webkit-user-select: text;
-    }
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    @apply antialiased overflow-hidden font-sans;
+    user-select: text;
+    -webkit-user-select: text;
+  }
 
-    /* Ensure all text across the app is selectable by default for easy copy */
-    *,
-    *::before,
-    *::after {
-        user-select: text;
-        -webkit-user-select: text;
-    }
+  /* Ensure all text across the app is selectable by default for easy copy */
+  *,
+  *::before,
+  *::after {
+    user-select: text;
+    -webkit-user-select: text;
+  }
 
-    /* Only interactive buttons, checkboxes, range sliders, and resize splitters prevent text selection */
-    button,
-    input[type="range"],
-    input[type="checkbox"],
-    .cursor-col-resize,
-    .cursor-row-resize,
-    .react-flow__handle {
-        user-select: none;
-        -webkit-user-select: none;
-    }
+  /* Only interactive buttons, checkboxes, range sliders, and resize splitters prevent text selection */
+  button,
+  input[type="range"],
+  input[type="checkbox"],
+  .cursor-col-resize,
+  .cursor-row-resize,
+  .react-flow__handle {
+    user-select: none;
+    -webkit-user-select: none;
+  }
 }
 
 /* React Flow custom canvas styling */
@@ -204,217 +204,220 @@
 .react-flow__pane:focus-visible,
 .react-flow:focus,
 .react-flow:focus-visible {
-    outline: none !important;
+  outline: none !important;
 }
 
 .react-flow__background {
-    background-color: var(--bg-canvas) !important;
+  background-color: var(--bg-canvas) !important;
 }
 
 .react-flow__pane {
-    background-color: transparent !important;
+  background-color: transparent !important;
 }
 
 .react-flow__node {
-    border-radius: 12px;
-    font-family:
-        "Inter",
-        system-ui,
-        -apple-system,
-        sans-serif;
+  border-radius: 12px;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 .react-flow__edge-path {
-    stroke-linecap: round;
-    transition:
-        stroke 0.2s ease,
-        stroke-width 0.2s ease;
+  stroke-linecap: round;
+  transition:
+    stroke 0.2s ease,
+    stroke-width 0.2s ease;
 }
 
 .react-flow__edge.animated .react-flow__edge-path {
-    stroke-dasharray: 6;
-    animation: edgePulse 1s linear infinite;
+  stroke-dasharray: 6;
+  animation: edgePulse 1s linear infinite;
 }
 
 @keyframes edgePulse {
-    from {
-        stroke-dashoffset: 24;
-    }
-    to {
-        stroke-dashoffset: 0;
-    }
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 .react-flow__controls {
-    border-radius: 10px !important;
-    overflow: hidden !important;
-    border: 1px solid var(--border-medium) !important;
-    background-color: var(--bg-surface-primary) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border-medium) !important;
+  background-color: var(--bg-surface-primary) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
 }
 
 .react-flow__controls-button {
-    background-color: var(--bg-surface-primary) !important;
-    border-bottom: 1px solid var(--border-subtle) !important;
-    fill: var(--text-secondary) !important;
-    color: var(--text-secondary) !important;
-    stroke: var(--text-secondary) !important;
-    transition: all 0.15s ease !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+  background-color: var(--bg-surface-primary) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  fill: var(--text-secondary) !important;
+  color: var(--text-secondary) !important;
+  stroke: var(--text-secondary) !important;
+  transition: all 0.15s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .react-flow__controls-button svg {
-    fill: var(--text-secondary) !important;
-    max-width: 13px !important;
-    max-height: 13px !important;
+  fill: var(--text-secondary) !important;
+  max-width: 13px !important;
+  max-height: 13px !important;
 }
 
 .react-flow__controls-button:hover {
-    background-color: var(--bg-surface-hover) !important;
-    fill: var(--text-primary) !important;
-    color: var(--text-primary) !important;
+  background-color: var(--bg-surface-hover) !important;
+  fill: var(--text-primary) !important;
+  color: var(--text-primary) !important;
 }
 
 .react-flow__controls-button:hover svg {
-    fill: var(--text-primary) !important;
+  fill: var(--text-primary) !important;
 }
 
 .grid-flow-controls .react-flow__controls-button {
-    width: clamp(20px, 6cqw, 24px) !important;
-    height: clamp(20px, 6cqw, 24px) !important;
+  width: clamp(20px, 6cqw, 24px) !important;
+  height: clamp(20px, 6cqw, 24px) !important;
 }
 
 /* Subtle, performant active node running glow */
 @keyframes nodeRunningGlow {
-    0% {
-        box-shadow:
-            0 0 8px rgba(245, 158, 11, 0.4),
-            0 0 16px rgba(245, 158, 11, 0.2);
-    }
-    50% {
-        box-shadow:
-            0 0 18px rgba(245, 158, 11, 0.7),
-            0 0 28px rgba(245, 158, 11, 0.35);
-    }
-    100% {
-        box-shadow:
-            0 0 8px rgba(245, 158, 11, 0.4),
-            0 0 16px rgba(245, 158, 11, 0.2);
-    }
+  0% {
+    box-shadow:
+      0 0 8px rgba(245, 158, 11, 0.4),
+      0 0 16px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 18px rgba(245, 158, 11, 0.7),
+      0 0 28px rgba(245, 158, 11, 0.35);
+  }
+  100% {
+    box-shadow:
+      0 0 8px rgba(245, 158, 11, 0.4),
+      0 0 16px rgba(245, 158, 11, 0.2);
+  }
 }
 
 .bt-node-running {
-    animation: nodeRunningGlow 1.5s infinite ease-in-out;
+  animation: nodeRunningGlow 1.5s infinite ease-in-out;
 }
 
 /* Continuous, smooth heartbeat scale pulse for the entire node card while paused at a breakpoint */
 @keyframes nodePauseHeartbeat {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.18);
-    }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
 }
 
 .bt-node-paused-pulse {
-    animation: nodePauseHeartbeat 1.2s ease-in-out infinite;
-    transform-origin: center;
-    will-change: transform;
+  animation: nodePauseHeartbeat 1.2s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
 }
 
 /* Outward expanding red outline ring/ripple for paused breakpoint indicator */
 @keyframes breakpointRipple {
-    0% {
-        transform: scale(1);
-        opacity: 0.85;
-    }
-    100% {
-        transform: scale(2.5);
-        opacity: 0;
-    }
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
 }
 
 .bt-breakpoint-ripple {
-    animation: breakpointRipple 1.4s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
-    transform-origin: center;
-    will-change: transform, opacity;
+  animation: breakpointRipple 1.4s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+  transform-origin: center;
+  will-change: transform, opacity;
 }
 
 .bt-breakpoint-ripple-delayed {
-    animation: breakpointRipple 1.4s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 0.7s;
-    transform-origin: center;
-    will-change: transform, opacity;
+  animation: breakpointRipple 1.4s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 0.7s;
+  transform-origin: center;
+  will-change: transform, opacity;
 }
 
 /* Continuous, smooth heartbeat pulse for breakpoint indicators while paused (never opacity 0) */
 @keyframes breakpointHeartbeat {
-    0%, 100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4);
-    }
-    50% {
-        transform: scale(1.18);
-        box-shadow: 0 0 8px 2px rgba(244, 63, 94, 0.6);
-    }
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4);
+  }
+  50% {
+    transform: scale(1.18);
+    box-shadow: 0 0 8px 2px rgba(244, 63, 94, 0.6);
+  }
 }
 
 .bt-breakpoint-pulse {
-    animation: breakpointHeartbeat 1.2s ease-in-out infinite;
-    transform-origin: center;
-    will-change: transform;
+  animation: breakpointHeartbeat 1.2s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
 }
 
 /* Continuous smooth heartbeat pulse for amber paused indicators */
 @keyframes pauseHeartbeat {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.18);
-    }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
 }
 
 .bt-pause-pulse {
-    animation: pauseHeartbeat 1.2s ease-in-out infinite;
-    transform-origin: center;
-    will-change: transform;
+  animation: pauseHeartbeat 1.2s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
 }
 
 /* Custom scrollbar styling for IDE theme */
 ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-    background: var(--bg-surface-secondary);
+  background: var(--bg-surface-secondary);
 }
 ::-webkit-scrollbar-thumb {
-    background: var(--border-medium);
-    border-radius: 3px;
+  background: var(--border-medium);
+  border-radius: 3px;
 }
 /* Sleek custom scrollbar for node content & hover popovers */
 .bt-node-scrollbar::-webkit-scrollbar {
-    width: 4px;
+  width: 4px;
 }
 .bt-node-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 .bt-node-scrollbar::-webkit-scrollbar-thumb {
-    background: var(--border-medium);
-    border-radius: 4px;
+  background: var(--border-medium);
+  border-radius: 4px;
 }
 .bt-node-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: var(--border-strong);
+  background: var(--border-strong);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .bt-node-running,
-    .react-flow__edge.animated .react-flow__edge-path {
-        animation: none !important;
-    }
+  .bt-node-running,
+  .react-flow__edge.animated .react-flow__edge-path {
+    animation: none !important;
+  }
 }
 
 /* ==========================================================================
@@ -422,199 +425,199 @@
    ========================================================================== */
 
 .d-flex {
-    display: flex !important;
+  display: flex !important;
 }
 
 .align-items-center {
-    align-items: center !important;
+  align-items: center !important;
 }
 
 .ms-auto {
-    margin-left: auto !important;
+  margin-left: auto !important;
 }
 
 @media (min-width: 992px) {
-    .order-lg-last {
-        order: 9999 !important;
-    }
+  .order-lg-last {
+    order: 9999 !important;
+  }
 }
 
 .theme-switch-wrapper {
-    display: flex;
-    align-items: center;
+  display: flex;
+  align-items: center;
 }
 
 .theme-switch-wrapper.m-0 {
-    margin: 0 !important;
+  margin: 0 !important;
 }
 
 .theme-switch {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    width: 54px;
-    height: 28px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    user-select: none;
-    vertical-align: middle;
-    appearance: none;
-    -webkit-appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 54px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .theme-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-    position: absolute;
-    pointer-events: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+  pointer-events: none;
 }
 
 .slider {
-    background-color: var(--bg-surface-secondary);
-    border: 1px solid var(--border-medium);
-    border-radius: 50px;
-    position: absolute;
-    cursor: pointer;
-    inset: 0;
-    transition:
-        background-color 0.25s ease,
-        border-color 0.25s ease,
-        box-shadow 0.25s ease,
-        transform 0.15s ease;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 5px;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: 50px;
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .theme-switch:hover .slider {
-    border-color: var(--border-strong);
+  border-color: var(--border-strong);
 }
 
 .theme-switch:active .slider {
-    transform: scale(0.96);
+  transform: scale(0.96);
 }
 
 .slider::before {
-    content: "";
-    position: absolute;
-    left: 2px;
-    top: 2px;
-    width: 22px;
-    height: 22px;
-    background-color: var(--bg-surface-primary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 50%;
-    transition:
-        transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-        background-color 0.25s ease,
-        border-color 0.25s ease,
-        box-shadow 0.25s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-    z-index: 1;
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 22px;
+  height: 22px;
+  background-color: var(--bg-surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  transition:
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  z-index: 1;
 }
 
 .theme-switch input:checked + .slider::before,
 .theme-switch[aria-checked="true"] .slider::before,
 .dark .theme-switch .slider::before {
-    transform: translateX(26px);
-    background-color: var(--accent-primary);
-    border-color: var(--accent-hover);
-    box-shadow: 0 1px 4px rgba(2, 132, 199, 0.45);
+  transform: translateX(26px);
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.45);
 }
 
 .sun-icon {
-    z-index: 2;
-    pointer-events: none;
-    color: #f59e0b;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    transition:
-        color 0.25s ease,
-        opacity 0.25s ease;
+  z-index: 2;
+  pointer-events: none;
+  color: #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  transition:
+    color 0.25s ease,
+    opacity 0.25s ease;
 }
 
 .moon-icon {
-    z-index: 2;
-    pointer-events: none;
-    color: var(--text-muted);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    transition:
-        color 0.25s ease,
-        opacity 0.25s ease;
+  z-index: 2;
+  pointer-events: none;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  transition:
+    color 0.25s ease,
+    opacity 0.25s ease;
 }
 
 .theme-switch input:checked + .slider .sun-icon,
 .theme-switch[aria-checked="true"] .slider .sun-icon,
 .dark .theme-switch .slider .sun-icon {
-    color: var(--text-muted);
-    opacity: 0.45;
+  color: var(--text-muted);
+  opacity: 0.45;
 }
 
 .theme-switch input:checked + .slider,
 .theme-switch[aria-checked="true"] .slider,
 .dark .theme-switch .slider {
-    background-color: var(--bg-surface-tertiary);
-    border-color: var(--border-strong);
+  background-color: var(--bg-surface-tertiary);
+  border-color: var(--border-strong);
 }
 
 .theme-switch input:checked + .slider .moon-icon,
 .theme-switch[aria-checked="true"] .slider .moon-icon,
 .dark .theme-switch .slider .moon-icon {
-    color: #ffffff;
-    opacity: 1;
+  color: #ffffff;
+  opacity: 1;
 }
 
 .theme-switch:focus-visible .slider {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 /* Edge Reconnect Updater Handles & Dash Animation */
 @keyframes dashdraw {
-    from {
-        stroke-dashoffset: 20;
-    }
-    to {
-        stroke-dashoffset: 0;
-    }
+  from {
+    stroke-dashoffset: 20;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 /* Edge updater anchors: keep completely transparent and non-distorting so they don't enlarge or obscure connection points */
 .react-flow__edgeupdater {
-    fill: transparent !important;
-    stroke: transparent !important;
-    outline: none !important;
-    cursor: grab !important;
-    opacity: 0 !important;
-    pointer-events: auto;
+  fill: transparent !important;
+  stroke: transparent !important;
+  outline: none !important;
+  cursor: grab !important;
+  opacity: 0 !important;
+  pointer-events: auto;
 }
 
 .react-flow__edge:hover .react-flow__edgeupdater,
 .react-flow__edge.selected .react-flow__edgeupdater {
-    opacity: 0 !important;
+  opacity: 0 !important;
 }
 
 .react-flow__edgeupdater:hover {
-    fill: transparent !important;
-    stroke: transparent !important;
-    outline: none !important;
-    opacity: 0 !important;
-    cursor: grabbing !important;
+  fill: transparent !important;
+  stroke: transparent !important;
+  outline: none !important;
+  opacity: 0 !important;
+  cursor: grabbing !important;
 }
 
 /* Prevent React Flow from overriding edge color to washed-out gray on update hover */
 .react-flow__edge.updating .react-flow__edge-path {
-    stroke: #38bdf8 !important;
+  stroke: #38bdf8 !important;
 }

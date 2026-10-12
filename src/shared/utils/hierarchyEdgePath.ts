@@ -34,10 +34,7 @@ const simplifyPoints = (points: Point[]): Point[] => {
   return result;
 };
 
-const roundedOrthogonalPath = (
-  points: Point[],
-  radius: number,
-): string => {
+const roundedOrthogonalPath = (points: Point[], radius: number): string => {
   const simplified = simplifyPoints(points);
   if (simplified.length < 2) return "";
 

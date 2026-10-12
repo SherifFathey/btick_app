@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
-import { 
-  FileCode, 
-  FolderOpen, 
-  Download, 
-  Undo2, 
-  Redo2, 
+import React, { useRef } from "react";
+import {
+  FileCode,
+  FolderOpen,
+  Download,
+  Undo2,
+  Redo2,
   FilePlus,
   Code2,
   GitBranch,
@@ -12,8 +12,8 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
-} from 'lucide-react';
-import { ValidationIssue } from '../types';
+} from "lucide-react";
+import { ValidationIssue } from "../types";
 
 interface BTEditorToolbarProps {
   treesList: string[];
@@ -65,7 +65,7 @@ export const BTEditorToolbar: React.FC<BTEditorToolbarProps> = ({
       reader.readAsText(file);
     }
     // reset input
-    e.target.value = '';
+    e.target.value = "";
   };
 
   return (
@@ -83,11 +83,13 @@ export const BTEditorToolbar: React.FC<BTEditorToolbarProps> = ({
               onClick={() => onSelectTree(tId)}
               className={`h-7 flex items-center gap-1.5 px-3 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap shrink-0 active:scale-95 shadow-2xs ${
                 isActive
-                  ? 'bg-accent-primary text-white font-bold shadow-xs'
-                  : 'bg-surface-primary hover:bg-surface-hover text-text-secondary hover:text-text-primary border border-border-medium hover:border-border-strong font-medium'
+                  ? "bg-accent-primary text-white font-bold shadow-xs"
+                  : "bg-surface-primary hover:bg-surface-hover text-text-secondary hover:text-text-primary border border-border-medium hover:border-border-strong font-medium"
               }`}
             >
-              <GitBranch className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-accent-primary'}`} />
+              <GitBranch
+                className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-white" : "text-accent-primary"}`}
+              />
               <span className="truncate max-w-[130px]">{tId}</span>
             </button>
           );
@@ -130,7 +132,9 @@ export const BTEditorToolbar: React.FC<BTEditorToolbarProps> = ({
           >
             <Download className="w-3.5 h-3.5 text-accent-primary shrink-0" />
             <span>Download</span>
-            {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-accent-primary shrink-0" />}
+            {isDirty && (
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-primary shrink-0" />
+            )}
           </button>
         </div>
 
@@ -160,10 +164,14 @@ export const BTEditorToolbar: React.FC<BTEditorToolbarProps> = ({
         {/* Tree Validation Status Button */}
         {(() => {
           const activeTreeIssues = (validationIssues || []).filter(
-            (issue) => !issue.treeId || issue.treeId === activeTreeId
+            (issue) => !issue.treeId || issue.treeId === activeTreeId,
           );
-          const errorCount = activeTreeIssues.filter((i) => i.severity === 'error').length;
-          const warningCount = activeTreeIssues.filter((i) => i.severity === 'warning').length;
+          const errorCount = activeTreeIssues.filter(
+            (i) => i.severity === "error",
+          ).length;
+          const warningCount = activeTreeIssues.filter(
+            (i) => i.severity === "warning",
+          ).length;
 
           if (errorCount > 0) {
             return (
@@ -173,8 +181,10 @@ export const BTEditorToolbar: React.FC<BTEditorToolbarProps> = ({
                 title={`Tree has ${errorCount} error(s) and ${warningCount} warning(s). Click to view issues.`}
               >
                 <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
-                <span>{`${errorCount} ${errorCount === 1 ? 'Error' : 'Errors'}`}</span>
-                {warningCount > 0 && <span className="opacity-80">({warningCount}w)</span>}
+                <span>{`${errorCount} ${errorCount === 1 ? "Error" : "Errors"}`}</span>
+                {warningCount > 0 && (
+                  <span className="opacity-80">({warningCount}w)</span>
+                )}
               </button>
             );
           }
@@ -187,7 +197,7 @@ export const BTEditorToolbar: React.FC<BTEditorToolbarProps> = ({
                 title={`Tree has ${warningCount} warning(s). Click to view issues.`}
               >
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span>{`${warningCount} ${warningCount === 1 ? 'Warning' : 'Warnings'}`}</span>
+                <span>{`${warningCount} ${warningCount === 1 ? "Warning" : "Warnings"}`}</span>
               </button>
             );
           }

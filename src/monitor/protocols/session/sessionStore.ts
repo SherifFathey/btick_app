@@ -1,6 +1,14 @@
-import { BTTreeModel, RecordingSession, RecordingSnapshot, TransitionEvent } from '../../types/bt';
-import { RecordingSessionMetadata, RecordingStorageAdapter } from './recordingStorage';
-import { createRecordingStorage } from './createRecordingStorage';
+import {
+  BTTreeModel,
+  RecordingSession,
+  RecordingSnapshot,
+  TransitionEvent,
+} from "../../types/bt";
+import {
+  RecordingSessionMetadata,
+  RecordingStorageAdapter,
+} from "./recordingStorage";
+import { createRecordingStorage } from "./createRecordingStorage";
 
 /** How often the store logs a heartbeat tick (milliseconds). */
 export const SESSION_STORE_HEARTBEAT_INTERVAL_MS = 10_000;
@@ -18,7 +26,7 @@ export const SESSION_STORE_STARTUP_TIMEOUT_MS = 5_000;
 export const SESSION_STORE_REPLAY_WARNING_THRESHOLD = 20_000;
 
 interface StartupQueueEntry {
-  kind: 'event' | 'snapshot';
+  kind: "event" | "snapshot";
   event?: TransitionEvent;
   snapshot?: RecordingSnapshot;
 }
@@ -48,9 +56,15 @@ export class SessionStore {
   private startPromise: Promise<void> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
-  get sessionId(): string | null { return this._sessionId; }
-  get isReady(): boolean { return this._isReady; }
-  get degraded(): boolean { return this._degraded; }
+  get sessionId(): string | null {
+    return this._sessionId;
+  }
+  get isReady(): boolean {
+    return this._isReady;
+  }
+  get degraded(): boolean {
+    return this._degraded;
+  }
 
   /**
    * Start a new session. If a session is already active it is disposed first.
@@ -94,26 +108,39 @@ export class SessionStore {
         // Flush events that arrived before the adapter was ready
         for (const entry of this.startupQueue) {
           try {
-            if (entry.kind === 'event' && entry.event) {
+            if (entry.kind === "event" && entry.event) {
               adapter.appendEvent(entry.event);
-            } else if (entry.kind === 'snapshot' && entry.snapshot) {
+            } else if (entry.kind === "snapshot" && entry.snapshot) {
               adapter.appendSnapshot(entry.snapshot);
             }
           } catch (flushErr) {
-            console.error('[BTick][SessionStore] Failed to flush startup queue entry:', flushErr);
+            console.error(
+              "[BTick][SessionStore] Failed to flush startup queue entry:",
+              flushErr,
+            );
           }
         }
         this.startupQueue = [];
-        console.debug('[BTick][SessionStore] Session started; startup queue flushed.', { sessionId });
+        console.debug(
+          "[BTick][SessionStore] Session started; startup queue flushed.",
+          { sessionId },
+        );
       } catch (err) {
         this._degraded = true;
         this.startupQueue = [];
-        const isQuota = err instanceof DOMException &&
-          (err.name === 'QuotaExceededError' || err.code === 22);
+        const isQuota =
+          err instanceof DOMException &&
+          (err.name === "QuotaExceededError" || err.code === 22);
         if (isQuota) {
-          console.warn('[BTick][SessionStore] Storage quota exceeded; degraded mode.', err);
+          console.warn(
+            "[BTick][SessionStore] Storage quota exceeded; degraded mode.",
+            err,
+          );
         } else {
-          console.error('[BTick][SessionStore] Failed to start session; degraded mode.', err);
+          console.error(
+            "[BTick][SessionStore] Failed to start session; degraded mode.",
+            err,
+          );
         }
       } finally {
         this.startPromise = null;
@@ -134,13 +161,13 @@ export class SessionStore {
   appendEvent(event: TransitionEvent): void {
     if (this._degraded) return;
     if (!this._isReady) {
-      this.startupQueue.push({ kind: 'event', event });
+      this.startupQueue.push({ kind: "event", event });
       return;
     }
     try {
       this.adapter?.appendEvent(event);
     } catch (err) {
-      console.error('[BTick][SessionStore] appendEvent failed:', err);
+      console.error("[BTick][SessionStore] appendEvent failed:", err);
     }
   }
 
@@ -150,13 +177,13 @@ export class SessionStore {
   appendSnapshot(snapshot: RecordingSnapshot): void {
     if (this._degraded) return;
     if (!this._isReady) {
-      this.startupQueue.push({ kind: 'snapshot', snapshot });
+      this.startupQueue.push({ kind: "snapshot", snapshot });
       return;
     }
     try {
       this.adapter?.appendSnapshot(snapshot);
     } catch (err) {
-      console.error('[BTick][SessionStore] appendSnapshot failed:', err);
+      console.error("[BTick][SessionStore] appendSnapshot failed:", err);
     }
   }
 
@@ -166,7 +193,9 @@ export class SessionStore {
    * WITHOUT deleting them. The session remains active and continues accepting
    * new events after this call. Safe to call multiple times.
    */
-  async exportSession(startupTimeoutMs: number = SESSION_STORE_STARTUP_TIMEOUT_MS): Promise<RecordingSession | null> {
+  async exportSession(
+    startupTimeoutMs: number = SESSION_STORE_STARTUP_TIMEOUT_MS,
+  ): Promise<RecordingSession | null> {
     if (this._degraded || !this.adapter || !this._sessionId) return null;
 
     // Wait for startup if still in progress with timeout
@@ -174,13 +203,20 @@ export class SessionStore {
       let timeoutId: any;
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
-          reject(new Error(`SessionStore startup timed out after ${startupTimeoutMs}ms`));
+          reject(
+            new Error(
+              `SessionStore startup timed out after ${startupTimeoutMs}ms`,
+            ),
+          );
         }, startupTimeoutMs);
       });
       try {
         await Promise.race([this.startPromise, timeoutPromise]);
       } catch (err) {
-        console.error('[BTick][SessionStore] exportSession startup wait failed:', err);
+        console.error(
+          "[BTick][SessionStore] exportSession startup wait failed:",
+          err,
+        );
         throw err;
       } finally {
         clearTimeout(timeoutId);
@@ -189,12 +225,12 @@ export class SessionStore {
     if (this._degraded || !this.adapter) return null;
 
     try {
-      if (typeof this.adapter.readSession === 'function') {
+      if (typeof this.adapter.readSession === "function") {
         return await this.adapter.readSession();
       }
       return null;
     } catch (err) {
-      console.error('[BTick][SessionStore] exportSession failed:', err);
+      console.error("[BTick][SessionStore] exportSession failed:", err);
       throw err;
     }
   }
@@ -202,11 +238,16 @@ export class SessionStore {
   /**
    * Reads record counts directly from disk storage.
    */
-  async getRecordCounts(): Promise<{ events: number; snapshots: number; executions: number; total: number }> {
+  async getRecordCounts(): Promise<{
+    events: number;
+    snapshots: number;
+    executions: number;
+    total: number;
+  }> {
     if (this._degraded || !this.adapter || !this._sessionId) {
       return { events: 0, snapshots: 0, executions: 0, total: 0 };
     }
-    if (typeof this.adapter.getRecordCounts === 'function') {
+    if (typeof this.adapter.getRecordCounts === "function") {
       return await this.adapter.getRecordCounts(this._sessionId);
     }
     return { events: 0, snapshots: 0, executions: 0, total: 0 };
@@ -215,12 +256,19 @@ export class SessionStore {
   /**
    * Reads a bounded event slice directly from disk storage.
    */
-  async readEventRange(startIndex: number, count: number): Promise<TransitionEvent[]> {
+  async readEventRange(
+    startIndex: number,
+    count: number,
+  ): Promise<TransitionEvent[]> {
     if (this._degraded || !this.adapter || !this._sessionId) {
       return [];
     }
-    if (typeof this.adapter.readEventRange === 'function') {
-      return await this.adapter.readEventRange(this._sessionId, startIndex, count);
+    if (typeof this.adapter.readEventRange === "function") {
+      return await this.adapter.readEventRange(
+        this._sessionId,
+        startIndex,
+        count,
+      );
     }
     return [];
   }
@@ -231,9 +279,13 @@ export class SessionStore {
    * records, deletes the session from storage, and resets internal state.
    * Calling this a second time returns null without error.
    */
-  async finalizeSession(finalTrees?: BTTreeModel[]): Promise<RecordingSession | null> {
+  async finalizeSession(
+    finalTrees?: BTTreeModel[],
+  ): Promise<RecordingSession | null> {
     if (this.finalized) {
-      console.warn('[BTick][SessionStore] finalizeSession() called on already-finalized session; returning null.');
+      console.warn(
+        "[BTick][SessionStore] finalizeSession() called on already-finalized session; returning null.",
+      );
       return null;
     }
     this.finalized = true;
@@ -268,14 +320,14 @@ export class SessionStore {
 
     try {
       const session = await adapter.finalize(finalTrees);
-      console.debug('[BTick][SessionStore] Session finalized.', {
+      console.debug("[BTick][SessionStore] Session finalized.", {
         sessionId,
         events: session?.events?.length ?? 0,
       });
       this.reset();
       return session;
     } catch (err) {
-      console.error('[BTick][SessionStore] finalizeSession failed:', err);
+      console.error("[BTick][SessionStore] finalizeSession failed:", err);
       this.reset();
       return null;
     }
@@ -287,7 +339,9 @@ export class SessionStore {
    * Used when a new tree/protocol session starts and the previous session is no
    * longer needed, or on component unmount.
    */
-  async dispose(timeoutMs: number = SESSION_STORE_STARTUP_TIMEOUT_MS): Promise<void> {
+  async dispose(
+    timeoutMs: number = SESSION_STORE_STARTUP_TIMEOUT_MS,
+  ): Promise<void> {
     this.stopHeartbeat();
 
     if (this.startPromise) {
@@ -308,12 +362,19 @@ export class SessionStore {
       try {
         await this.adapter.deleteSession(this._sessionId);
       } catch (err) {
-        console.error('[BTick][SessionStore] dispose deleteSession failed:', err);
+        console.error(
+          "[BTick][SessionStore] dispose deleteSession failed:",
+          err,
+        );
       }
     }
 
     if (this.adapter?.dispose) {
-      try { await this.adapter.dispose(); } catch (_) { /* ignore */ }
+      try {
+        await this.adapter.dispose();
+      } catch (_) {
+        /* ignore */
+      }
     }
 
     this.reset();
@@ -343,7 +404,7 @@ export class SessionStore {
       try {
         void this.adapter.updateHeartbeat?.(this._sessionId, Date.now());
       } catch (err) {
-        console.debug('[BTick][SessionStore] Heartbeat update error:', err);
+        console.debug("[BTick][SessionStore] Heartbeat update error:", err);
       }
     }
   }

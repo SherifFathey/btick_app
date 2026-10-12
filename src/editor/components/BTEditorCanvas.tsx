@@ -557,49 +557,48 @@ export const generateEditorGraphElements = (
     };
 
     const h =
-      measuredNodeHeights.get(rn.flowId) ||
-      calculateEditorNodeHeight(rn.node);
+      measuredNodeHeights.get(rn.flowId) || calculateEditorNodeHeight(rn.node);
     const nodeHandles = isHorizontal
       ? [
-        {
-          id: "target-left",
-          type: "target" as const,
-          position: Position.Left,
-          x: -5,
-          y: Math.round(h / 2) - 6,
-          width: 12,
-          height: 12,
-        },
-        {
-          id: "source-right",
-          type: "source" as const,
-          position: Position.Right,
-          x: 223,
-          y: Math.round(h / 2) - 6,
-          width: 12,
-          height: 12,
-        },
-      ]
+          {
+            id: "target-left",
+            type: "target" as const,
+            position: Position.Left,
+            x: -5,
+            y: Math.round(h / 2) - 6,
+            width: 12,
+            height: 12,
+          },
+          {
+            id: "source-right",
+            type: "source" as const,
+            position: Position.Right,
+            x: 223,
+            y: Math.round(h / 2) - 6,
+            width: 12,
+            height: 12,
+          },
+        ]
       : [
-        {
-          id: "target-top",
-          type: "target" as const,
-          position: Position.Top,
-          x: 109,
-          y: -5,
-          width: 12,
-          height: 12,
-        },
-        {
-          id: "source-bottom",
-          type: "source" as const,
-          position: Position.Bottom,
-          x: 109,
-          y: h - 5,
-          width: 12,
-          height: 12,
-        },
-      ];
+          {
+            id: "target-top",
+            type: "target" as const,
+            position: Position.Top,
+            x: 109,
+            y: -5,
+            width: 12,
+            height: 12,
+          },
+          {
+            id: "source-bottom",
+            type: "source" as const,
+            position: Position.Bottom,
+            x: 109,
+            y: h - 5,
+            width: 12,
+            height: 12,
+          },
+        ];
 
     return {
       id: rn.flowId,
@@ -803,7 +802,10 @@ const BTEditorCanvasInner: React.FC<BTEditorCanvasProps> = ({
       // positions the authoritative source of truth for the next generateEditorGraphElements
       // call, preventing any Dagre-computed position from overwriting visible nodes.
       flowNodesRef.current.forEach((n) => {
-        userPositionsRef.current.set(n.id, { x: n.position.x, y: n.position.y });
+        userPositionsRef.current.set(n.id, {
+          x: n.position.x,
+          y: n.position.y,
+        });
       });
 
       // Mark this update as a collapse/expand so the sync effect preserves
@@ -980,11 +982,11 @@ const BTEditorCanvasInner: React.FC<BTEditorCanvasProps> = ({
       const isHoriz = orientation === "horizontal";
       const childFlowPos = childNode
         ? {
-          x: isHoriz ? childNode.position.x : childNode.position.x + 115,
-          y: isHoriz
-            ? childNode.position.y + (childNode.height || 80) / 2
-            : childNode.position.y,
-        }
+            x: isHoriz ? childNode.position.x : childNode.position.x + 115,
+            y: isHoriz
+              ? childNode.position.y + (childNode.height || 80) / 2
+              : childNode.position.y,
+          }
         : screenToFlowPosition({ x: startScreenX, y: startScreenY });
 
       const onPointerMove = (moveEvent: PointerEvent) => {
@@ -1003,9 +1005,9 @@ const BTEditorCanvasInner: React.FC<BTEditorCanvasProps> = ({
         const wrapperRect = reactFlowWrapper.current?.getBoundingClientRect();
         const cursorScreenPos = wrapperRect
           ? {
-            x: moveEvent.clientX - wrapperRect.left,
-            y: moveEvent.clientY - wrapperRect.top,
-          }
+              x: moveEvent.clientX - wrapperRect.left,
+              y: moveEvent.clientY - wrapperRect.top,
+            }
           : { x: moveEvent.clientX, y: moveEvent.clientY };
 
         const { x: vX, y: vY, zoom } = getViewport();
@@ -1198,9 +1200,12 @@ const BTEditorCanvasInner: React.FC<BTEditorCanvasProps> = ({
   ]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
-  const [pathMode, setPathMode] = useState<"orthogonal" | "bezier">("orthogonal");
+  const [pathMode, setPathMode] = useState<"orthogonal" | "bezier">(
+    "orthogonal",
+  );
   const editorFlowEdges = useMemo(
-    () => flowEdges.map((edge) => ({ ...edge, data: { ...edge.data, pathMode } })),
+    () =>
+      flowEdges.map((edge) => ({ ...edge, data: { ...edge.data, pathMode } })),
     [flowEdges, pathMode],
   );
   const [edges, setEdges, onEdgesChange] = useEdgesState(editorFlowEdges);
@@ -1430,11 +1435,18 @@ const BTEditorCanvasInner: React.FC<BTEditorCanvasProps> = ({
         );
         const sourceData = sourceNode?.data as BTEditorNodeData | undefined;
         const targetData = targetNode?.data as BTEditorNodeData | undefined;
-        const sourceId = sourceData?.node.id || connection.source.split(":::").pop()!;
-        const childId = targetData?.node.id || connection.target.split(":::").pop()!;
-        const treeId = sourceData?.node ? sourceNode?.data?.treeId as string : activeTreeId;
+        const sourceId =
+          sourceData?.node.id || connection.source.split(":::").pop()!;
+        const childId =
+          targetData?.node.id || connection.target.split(":::").pop()!;
+        const treeId = sourceData?.node
+          ? (sourceNode?.data?.treeId as string)
+          : activeTreeId;
 
-        if (!treeId || !canConnectNodes(document, treeId, sourceId, childId).allowed) {
+        if (
+          !treeId ||
+          !canConnectNodes(document, treeId, sourceId, childId).allowed
+        ) {
           return;
         }
 
@@ -1618,9 +1630,13 @@ const BTEditorCanvasInner: React.FC<BTEditorCanvasProps> = ({
       );
       const sourceData = sourceNode?.data as BTEditorNodeData | undefined;
       const targetData = targetNode?.data as BTEditorNodeData | undefined;
-      const sourceId = sourceData?.node.id || connection.source.split(":::").pop()!;
-      const childId = targetData?.node.id || connection.target.split(":::").pop()!;
-      const treeId = sourceData?.node ? sourceNode?.data?.treeId as string : activeTreeId;
+      const sourceId =
+        sourceData?.node.id || connection.source.split(":::").pop()!;
+      const childId =
+        targetData?.node.id || connection.target.split(":::").pop()!;
+      const treeId = sourceData?.node
+        ? (sourceNode?.data?.treeId as string)
+        : activeTreeId;
 
       return treeId
         ? canConnectNodes(document, treeId, sourceId, childId).allowed
@@ -1670,10 +1686,11 @@ const BTEditorCanvasInner: React.FC<BTEditorCanvasProps> = ({
       {/* Floating Feedback Toast */}
       {feedbackMessage && (
         <div
-          className={`absolute top-16 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2 border transition-all pointer-events-auto ${feedbackMessage.type === "success"
-            ? "bg-emerald-600 text-white border-emerald-400 backdrop-blur-xs"
-            : "bg-rose-600 text-white border-rose-400 backdrop-blur-xs"
-            }`}
+          className={`absolute top-16 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2 border transition-all pointer-events-auto ${
+            feedbackMessage.type === "success"
+              ? "bg-emerald-600 text-white border-emerald-400 backdrop-blur-xs"
+              : "bg-rose-600 text-white border-rose-400 backdrop-blur-xs"
+          }`}
         >
           <span>{feedbackMessage.type === "success" ? "✓" : "⚠️"}</span>
           <span>{feedbackMessage.text}</span>
@@ -1890,12 +1907,13 @@ const BTEditorCanvasInner: React.FC<BTEditorCanvasProps> = ({
 
           {/* Floating Pill at cursor showing candidate target and validation status */}
           <div
-            className={`absolute pointer-events-none -translate-x-1/2 -translate-y-full mb-3 px-3 py-1.5 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-1.5 border backdrop-blur-md transition-all ${activeEdgeDrag.candidateParentId
-              ? activeEdgeDrag.isValidCandidate
-                ? "bg-emerald-600 text-white border-emerald-400"
-                : "bg-rose-600 text-white border-rose-400"
-              : "bg-surface-secondary/95 text-text-primary border-border-medium shadow-md"
-              }`}
+            className={`absolute pointer-events-none -translate-x-1/2 -translate-y-full mb-3 px-3 py-1.5 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-1.5 border backdrop-blur-md transition-all ${
+              activeEdgeDrag.candidateParentId
+                ? activeEdgeDrag.isValidCandidate
+                  ? "bg-emerald-600 text-white border-emerald-400"
+                  : "bg-rose-600 text-white border-rose-400"
+                : "bg-surface-secondary/95 text-text-primary border-border-medium shadow-md"
+            }`}
             style={{
               left: activeEdgeDrag.cursorScreenPos.x,
               top: activeEdgeDrag.cursorScreenPos.y - 12,

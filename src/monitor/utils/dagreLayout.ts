@@ -403,7 +403,10 @@ export const generateGraphElements = (
     }
   }
 
-  const buildLayoutNode = (id: string, visited = new Set<string>()): LayoutNode => {
+  const buildLayoutNode = (
+    id: string,
+    visited = new Set<string>(),
+  ): LayoutNode => {
     visited.add(id);
     const node = nodeMap.get(id);
     const height =

@@ -11,8 +11,6 @@ FROM ros:jazzy-ros-core
 
 LABEL description="BTick base: ROS 2 Jazzy + Python bridge dependencies"
 
-# If bridge/*.py imports other ROS packages (e.g. nav2_msgs), add them here:
-#   ros-jazzy-nav2-msgs
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
@@ -20,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-yaml \
     ros-jazzy-rclpy \
     ros-jazzy-std-msgs \
+    ros-jazzy-nav2-msgs \
     ros-jazzy-rmw-cyclonedds-cpp \
     ros-jazzy-rmw-fastrtps-cpp \
     curl \

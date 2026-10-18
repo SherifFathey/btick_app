@@ -806,6 +806,37 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
           .trim()
           .replace(/^\{|\}$/g, "")
           .trim();
+
+        // 1. If this port is an Output port, prefer the node's own produced value (isolation per node)
+        const isOutputPort = port.direction === "Output";
+        const nodeOwnVal =
+          port.runtime_value ??
+          (portName ? nodeData.output_ports_values?.[portName] : undefined);
+
+        if (isOutputPort) {
+          if (nodeOwnVal !== undefined && nodeOwnVal !== "") {
+            return {
+              display:
+                typeof nodeOwnVal === "object" && nodeOwnVal !== null
+                  ? JSON.stringify(nodeOwnVal)
+                  : String(nodeOwnVal),
+            };
+          }
+          // If Output port has not executed or produced an output yet, keep literal key or empty
+          return { display: trimmed };
+        }
+
+        // 2. For Input or Inout/Unknown ports, prefer node's own recorded runtime_value if present,
+        // otherwise read from live blackboard.
+        if (nodeOwnVal !== undefined && nodeOwnVal !== "") {
+          return {
+            display:
+              typeof nodeOwnVal === "object" && nodeOwnVal !== null
+                ? JSON.stringify(nodeOwnVal)
+                : String(nodeOwnVal),
+          };
+        }
+
         if (Object.prototype.hasOwnProperty.call(blackboard, blackboardKey)) {
           const currentValue = blackboard[blackboardKey];
           return {

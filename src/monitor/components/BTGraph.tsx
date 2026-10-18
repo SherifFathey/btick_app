@@ -432,7 +432,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     setMeasuredNodeHeights(new Map());
   }, [tree?.tree_id, activeOrientation, activeProtocol, layoutRevision]);
 
-  // Global Keyboard Shortcuts (F5 = Continue/Resume, F9 = Toggle Breakpoint)
+  // Global Keyboard Shortcuts (F5 = Continue/Resume, F9 = Toggle Breakpoint) [Disabled]
+  /*
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReadOnlyDebug) return;
@@ -453,6 +454,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isReadOnlyDebug, onResume, onToggleBreakpoint, selectedNodeId, tree]);
+  */
 
   // Collect failed nodes in current tree
   const failedNodes = useMemo(() => {
@@ -1320,10 +1322,10 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
             <button
               onClick={() => onResume?.(tree?.tree_id)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer active:scale-95 border border-emerald-700 shrink-0"
-              title="Continue / Real Node Execution (F5)"
+              title="Continue Execution from Breakpoint"
             >
               <Play className="w-3 h-3 fill-current" />
-              <span>Continue (F5)</span>
+              <span>Continue </span>
             </button>
 
             <button

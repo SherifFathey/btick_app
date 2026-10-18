@@ -695,7 +695,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
               {allInjections.length > 0 && onClearAllFaults && (
                 <button
                   onClick={() => onClearAllFaults(tree?.tree_id)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-100 hover:bg-purple-600 text-purple-700 hover:text-white dark:bg-purple-950 dark:hover:bg-purple-600 dark:text-purple-300 border border-purple-300 dark:border-purple-700 font-semibold text-xs transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-600 text-rose-700 hover:text-white dark:bg-rose-950 dark:hover:bg-rose-600 dark:text-rose-300 border border-rose-300 dark:border-rose-700 font-semibold text-xs transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
                   title="Clear all active fault overrides"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -876,7 +876,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                           {node.type || node.category}
                         </td>
                         <td
-                          className="py-1.5 px-3 text-white font-semibold max-w-[120px] truncate"
+                          className="py-1.5 px-3 text-text-primary font-semibold max-w-[120px] truncate"
                           title={treeName}
                         >
                           {treeName}
@@ -986,7 +986,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                           {node.type || node.category}
                         </td>
                         <td
-                          className="py-1.5 px-3 text-white font-semibold max-w-[120px] truncate"
+                          className="py-1.5 px-3 text-text-primary font-semibold max-w-[120px] truncate"
                           title={treeName}
                         >
                           {treeName}
@@ -1043,10 +1043,10 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onClearFault(treeId, node.uid)}
-                                className="p-1.5 rounded-lg bg-purple-100 hover:bg-purple-600 text-purple-700 hover:text-white dark:bg-purple-950 dark:hover:bg-purple-600 dark:text-purple-300 border border-purple-300 dark:border-purple-700 transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                                className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-600 text-rose-700 hover:text-white dark:bg-rose-950 dark:hover:bg-rose-600 dark:text-rose-300 border border-rose-300 dark:border-rose-700 transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
                                 title="Reset / Clear Fault"
                               >
-                                <RotateCcw className="w-3.5 h-3.5" />
+                                <XCircle className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>

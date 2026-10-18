@@ -2132,7 +2132,8 @@ export const App: React.FC = () => {
     ],
   );
 
-  // Keyboard Shortcuts: Space or F5 to Resume
+  // Keyboard Shortcuts: Space or F5 to Resume [Disabled]
+  /*
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -2150,6 +2151,7 @@ export const App: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeProtocol, sessions, handleResume]);
+  */
 
   // Tree Visibility and Close Controls
   const handleToggleTreeVisibility = useCallback(

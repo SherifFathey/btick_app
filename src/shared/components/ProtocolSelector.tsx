@@ -157,14 +157,14 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
     );
     if (isProtoConnected) {
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-accent-primary text-white border border-accent-primary">
-          <Wifi className="w-3 h-3 text-white shrink-0" />
-          <span className="text-white">Connected</span>
+        <span className="inline-flex items-center gap-1 text-[10px] font-sans font-medium text-emerald-600 dark:text-emerald-400">
+          <Wifi className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>Connected</span>
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1 text-[10px] font-mono text-text-muted">
+      <span className="flex items-center gap-1 text-[10px] font-sans text-text-muted">
         <WifiOff className="w-3 h-3 text-text-muted shrink-0" />
         <span>Disconnected</span>
       </span>
@@ -195,15 +195,15 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
           }
           setIsSourceModalOpen(!isSourceModalOpen);
         }}
-        className={`w-full flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg border text-xs font-mono cursor-pointer transition-all whitespace-nowrap text-text-primary shadow-2xs hover:border-border-strong active:scale-95 ${
+        className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-sans cursor-pointer transition-all whitespace-nowrap text-text-primary ${
           isSourceModalOpen
-            ? "border-accent-primary bg-surface-hover ring-2 ring-accent-primary/20 relative z-50"
-            : "border-border-medium bg-surface-secondary hover:bg-surface-hover"
-        } ${compact ? "h-6 text-[11px] px-1.5" : "h-7.5"}`}
+            ? "border-border-focus bg-surface-hover ring-1 ring-border-focus/20 relative z-50"
+            : "border-border-subtle bg-surface-primary hover:bg-surface-hover hover:border-border-medium"
+        } ${compact ? "h-7 text-[11px] px-2" : "h-8"}`}
         title={`Click to switch Active Protocol Engine (${protocolDisplayName}: ${statusLabel})`}
       >
         {/* Left Side: Protocol Logo + Name */}
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           {activeProtocol === "btick" ? (
             <img
               src={treeLogo}
@@ -223,7 +223,7 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
               className="w-3.5 h-3.5 object-contain shrink-0"
             />
           )}
-          <span className="font-bold text-accent-primary dark:text-white truncate">
+          <span className="font-semibold text-text-primary text-xs truncate">
             {protocolDisplayName}
           </span>
         </div>
@@ -237,7 +237,7 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
               <WifiOff className="w-3.5 h-3.5 text-text-muted shrink-0" />
             )}
             <span
-              className={`text-[11px] font-bold font-mono tracking-tight shrink-0 ${
+              className={`text-[11px] font-medium font-sans tracking-tight shrink-0 ${
                 isOnline
                   ? "text-emerald-600 dark:text-emerald-400"
                   : "text-text-muted"
@@ -247,7 +247,7 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
             </span>
           </span>
           <ChevronDown
-            className={`w-3.5 h-3.5 text-text-secondary transition-transform shrink-0 ${isSourceModalOpen ? "rotate-180 text-accent-primary dark:text-white" : ""}`}
+            className={`w-3.5 h-3.5 text-text-muted transition-transform shrink-0 ${isSourceModalOpen ? "rotate-180 text-text-primary" : ""}`}
           />
         </div>
       </button>
@@ -263,22 +263,22 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
               setIsSourceModalOpen(false);
             }}
           />
-          <div className="absolute left-0 top-full mt-1.5 w-76 sm:w-80 bg-surface-primary rounded-2xl shadow-2xl border border-border-medium p-3 z-50 font-sans text-text-primary animate-in fade-in zoom-in-95">
+          <div className="absolute left-0 right-0 top-full mt-1.5 w-full bg-surface-primary rounded-xl shadow-lg border border-border-medium p-2.5 z-50 font-sans text-text-primary animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-border-subtle px-1">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-text-primary font-mono">
-                <Sliders className="w-4 h-4 text-accent-primary" />
-                <span>Select Protocol Engine</span>
+              <div className="flex items-center gap-1.5 font-semibold text-xs text-text-secondary truncate">
+                <Sliders className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                <span className="truncate">Select Protocol Engine</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsSourceModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-text-primary cursor-pointer transition-colors"
+                className="p-1 rounded-lg hover:bg-surface-hover text-text-muted hover:text-text-primary cursor-pointer transition-colors shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {/* Option 1: BTick */}
               <button
                 type="button"
@@ -291,22 +291,22 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                   }
                   setIsSourceModalOpen(false);
                 }}
-                className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                className={`w-full text-left p-2 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${
                   activeProtocol === "btick"
-                    ? "bg-accent-subtle border-accent-border text-text-primary font-bold shadow-2xs"
-                    : "bg-surface-secondary border-border-subtle hover:bg-surface-hover text-text-secondary font-medium"
+                    ? "bg-surface-secondary border-border-medium text-text-primary font-semibold"
+                    : "bg-surface-primary border-border-subtle hover:bg-surface-hover text-text-secondary hover:text-text-primary font-normal"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-surface-primary border border-border-subtle flex items-center justify-center p-1 shrink-0 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-md bg-surface-secondary border border-border-subtle flex items-center justify-center p-1 shrink-0">
                     <img
                       src={treeLogo}
                       alt="BTick"
-                      className="w-5 h-5 object-contain opacity-90 dark:brightness-0 dark:invert dark:opacity-100"
+                      className="w-4 h-4 object-contain opacity-90 dark:brightness-0 dark:invert dark:opacity-100"
                     />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[13px] font-bold leading-tight">
+                    <span className="text-xs font-semibold leading-tight text-text-primary">
                       BTick
                     </span>
                     <div className="mt-0.5">
@@ -315,12 +315,12 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                   </div>
                 </div>
                 {activeProtocol === "btick" ? (
-                  <span className="flex items-center gap-1 text-[11px] text-accent-primary dark:text-white font-bold font-mono px-2 py-0.5 rounded-md bg-accent-subtle border border-accent-border">
+                  <span className="flex items-center gap-1 text-[10px] text-text-primary font-medium px-1.5 py-0.5 rounded-md bg-surface-primary border border-border-subtle">
                     Active
-                    <Check className="w-3.5 h-3.5 text-accent-primary dark:text-white shrink-0" />
+                    <Check className="w-3 h-3 text-text-primary shrink-0" />
                   </span>
                 ) : (
-                  <span className="text-[11px] text-accent-primary dark:text-white font-mono font-medium hover:underline">
+                  <span className="text-[10px] text-text-muted font-medium hover:text-text-primary">
                     Switch
                   </span>
                 )}
@@ -328,10 +328,10 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
 
               {/* Option 2: Groot2 */}
               <div
-                className={`p-2.5 rounded-xl border transition-all ${
+                className={`p-2 rounded-lg border transition-all ${
                   selectedSource === "groot2"
-                    ? "bg-accent-subtle border-accent-border text-text-primary font-bold shadow-2xs"
-                    : "bg-surface-secondary border-border-subtle hover:bg-surface-hover text-text-secondary font-medium"
+                    ? "bg-surface-secondary border-border-medium text-text-primary font-semibold"
+                    : "bg-surface-primary border-border-subtle hover:bg-surface-hover text-text-secondary hover:text-text-primary font-normal"
                 }`}
               >
                 <button
@@ -339,17 +339,17 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                   onClick={handleSelectGroot2Row}
                   className="w-full text-left flex items-center justify-between cursor-pointer"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-surface-primary border border-border-subtle flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-md bg-surface-secondary border border-border-subtle flex items-center justify-center p-1 shrink-0 overflow-hidden">
                       <img
                         src={groot2Logo}
                         alt="Groot2"
-                        className="w-6 h-6 object-contain"
+                        className="w-5 h-5 object-contain"
                       />
                     </div>
                     <div className="flex flex-col">
                       <span
-                        className={`text-[13px] leading-tight ${selectedSource === "groot2" ? "font-bold text-text-primary" : "font-medium text-text-secondary"}`}
+                        className={`text-xs leading-tight ${selectedSource === "groot2" ? "font-semibold text-text-primary" : "font-normal text-text-secondary"}`}
                       >
                         Groot2
                       </span>
@@ -359,16 +359,16 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                     </div>
                   </div>
                   {activeProtocol === "groot2" ? (
-                    <span className="flex items-center gap-1 text-[11px] text-accent-primary dark:text-white font-bold font-mono px-2 py-0.5 rounded-md bg-accent-subtle border border-accent-border">
+                    <span className="flex items-center gap-1 text-[10px] text-text-primary font-medium px-1.5 py-0.5 rounded-md bg-surface-primary border border-border-subtle">
                       Active
-                      <Check className="w-3.5 h-3.5 text-accent-primary dark:text-white shrink-0" />
+                      <Check className="w-3 h-3 text-text-primary shrink-0" />
                     </span>
                   ) : selectedSource === "groot2" ? (
-                    <span className="text-[11px] text-accent-primary dark:text-white font-mono font-bold">
+                    <span className="text-[10px] text-text-primary font-medium">
                       Selected
                     </span>
                   ) : (
-                    <span className="text-[11px] text-accent-primary dark:text-white font-mono font-medium hover:underline">
+                    <span className="text-[10px] text-text-muted font-medium hover:text-text-primary">
                       Switch
                     </span>
                   )}
@@ -376,10 +376,10 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
 
                 {/* If Groot2 is selected, show host/port config inputs and Connect button */}
                 {selectedSource === "groot2" && (
-                  <div className="mt-2 pt-1 space-y-2 text-xs">
+                  <div className="mt-2 pt-1.5 border-t border-border-subtle space-y-2 text-xs">
                     <div className="grid grid-cols-3 gap-1.5">
                       <div className="col-span-2">
-                        <label className="text-[9px] font-semibold text-text-muted block mb-0.5 font-mono">
+                        <label className="text-[9px] font-medium text-text-muted block mb-0.5">
                           Host IP:
                         </label>
                         <input
@@ -391,12 +391,12 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                               handleConnectGroot2(true);
                             }
                           }}
-                          className="w-full bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-xs font-mono text-text-primary outline-none focus:border-border-focus"
+                          className="w-full bg-white dark:bg-surface-secondary border border-border-subtle rounded-md px-2 py-1 text-xs text-text-primary outline-none focus:border-border-focus font-mono"
                           placeholder="127.0.0.1"
                         />
                       </div>
                       <div>
-                        <label className="text-[9px] font-semibold text-text-muted block mb-0.5 font-mono">
+                        <label className="text-[9px] font-medium text-text-muted block mb-0.5">
                           Port:
                         </label>
                         <input
@@ -410,7 +410,7 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                               handleConnectGroot2(true);
                             }
                           }}
-                          className="w-full bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-xs font-mono text-text-primary outline-none focus:border-border-focus"
+                          className="w-full bg-white dark:bg-surface-secondary border border-border-subtle rounded-md px-2 py-1 text-xs text-text-primary outline-none focus:border-border-focus font-mono"
                           placeholder="1667"
                         />
                       </div>
@@ -418,7 +418,7 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                     <button
                       type="button"
                       onClick={() => handleConnectGroot2(true)}
-                      className="w-full py-1.5 bg-accent-primary hover:bg-accent-hover text-white rounded-lg border border-accent-border text-xs font-bold transition-all cursor-pointer text-center shadow-xs active:scale-95"
+                      className="w-full py-1.5 bg-accent-primary hover:bg-accent-hover text-white rounded-md text-xs font-semibold transition-all cursor-pointer text-center shadow-xs active:scale-95"
                     >
                       {activeProtocol === "groot2" ? "Reconnect" : "Connect"}
                     </button>
@@ -428,10 +428,10 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
 
               {/* Option 3: Nav2 */}
               <div
-                className={`p-2.5 rounded-xl border transition-all ${
+                className={`p-2 rounded-lg border transition-all ${
                   selectedSource === "nav2"
-                    ? "bg-accent-subtle border-accent-border text-text-primary font-bold shadow-2xs"
-                    : "bg-surface-secondary border-border-subtle hover:bg-surface-hover text-text-secondary font-medium"
+                    ? "bg-surface-secondary border-border-medium text-text-primary font-semibold"
+                    : "bg-surface-primary border-border-subtle hover:bg-surface-hover text-text-secondary hover:text-text-primary font-normal"
                 }`}
               >
                 <button
@@ -439,17 +439,17 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                   onClick={handleSelectNav2Row}
                   className="w-full text-left flex items-center justify-between cursor-pointer"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-surface-primary border border-border-subtle flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-md bg-surface-secondary border border-border-subtle flex items-center justify-center p-1 shrink-0 overflow-hidden">
                       <img
                         src={nav2Logo}
                         alt="Nav2"
-                        className="w-6 h-6 object-contain"
+                        className="w-5 h-5 object-contain"
                       />
                     </div>
                     <div className="flex flex-col">
                       <span
-                        className={`text-[13px] leading-tight ${selectedSource === "nav2" ? "font-bold text-text-primary" : "font-medium text-text-secondary"}`}
+                        className={`text-xs leading-tight ${selectedSource === "nav2" ? "font-semibold text-text-primary" : "font-normal text-text-secondary"}`}
                       >
                         Nav2
                       </span>
@@ -459,16 +459,16 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                     </div>
                   </div>
                   {activeProtocol === "nav2" ? (
-                    <span className="flex items-center gap-1 text-[11px] text-accent-primary dark:text-white font-bold font-mono px-2 py-0.5 rounded-md bg-accent-subtle border border-accent-border">
+                    <span className="flex items-center gap-1 text-[10px] text-text-primary font-medium px-1.5 py-0.5 rounded-md bg-surface-primary border border-border-subtle">
                       Active
-                      <Check className="w-3.5 h-3.5 text-accent-primary dark:text-white shrink-0" />
+                      <Check className="w-3 h-3 text-text-primary shrink-0" />
                     </span>
                   ) : selectedSource === "nav2" ? (
-                    <span className="text-[11px] text-accent-primary dark:text-white font-mono font-bold">
+                    <span className="text-[10px] text-text-primary font-medium">
                       Selected
                     </span>
                   ) : (
-                    <span className="text-[11px] text-accent-primary dark:text-white font-mono font-medium hover:underline">
+                    <span className="text-[10px] text-text-muted font-medium hover:text-text-primary">
                       Switch
                     </span>
                   )}
@@ -476,9 +476,9 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
 
                 {/* If Nav2 is selected, show editable topic name and Connect button */}
                 {selectedSource === "nav2" && (
-                  <div className="mt-2 pt-1 space-y-2 text-xs">
+                  <div className="mt-2 pt-1.5 border-t border-border-subtle space-y-2 text-xs">
                     <div>
-                      <label className="text-[9px] font-semibold text-text-muted block mb-0.5 font-mono">
+                      <label className="text-[9px] font-medium text-text-muted block mb-0.5">
                         Topic Name:
                       </label>
                       <input
@@ -490,14 +490,14 @@ export const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                             handleConnectNav2(true);
                           }
                         }}
-                        className="w-full bg-surface-primary border border-border-medium rounded-lg px-2 py-1 text-xs font-mono text-text-primary outline-none focus:border-border-focus"
+                        className="w-full bg-white dark:bg-surface-secondary border border-border-subtle rounded-md px-2 py-1 text-xs text-text-primary outline-none focus:border-border-focus font-mono"
                         placeholder="/behavior_tree_log"
                       />
                     </div>
                     <button
                       type="button"
                       onClick={() => handleConnectNav2(true)}
-                      className="w-full py-1.5 bg-accent-primary hover:bg-accent-hover text-white rounded-lg border border-accent-border text-xs font-bold transition-all cursor-pointer text-center shadow-xs active:scale-95"
+                      className="w-full py-1.5 bg-accent-primary hover:bg-accent-hover text-white rounded-md text-xs font-semibold transition-all cursor-pointer text-center shadow-xs active:scale-95"
                     >
                       {activeProtocol === "nav2" ? "Apply Topic" : "Connect"}
                     </button>

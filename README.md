@@ -147,15 +147,15 @@ BTick App is composed of a high-performance React frontend and a lightweight Pyt
 
 The bridge server accepts command-line arguments and environment variables without needing image rebuilds:
 
-| CLI Flag                      | Env Variable         | Default            | Description                                                                            |
-| :---------------------------- | :------------------- | :----------------- | :------------------------------------------------------------------------------------- |
-| `--http-port`                 | `HTTP_PORT`          | `3000`             | HTTP port for serving the web visualizer                                               |
-| `--ws-port`                   | `WS_PORT`            | `8080`             | WebSocket port for streaming telemetry                                                 |
-| `--zmq-port` / `--groot-port` | `ZMQ_PORT`           | `1667`             | Target port for connecting to Groot2 / ZMQ servers                                     |
-| `--zmq-host` / `--groot-host` | `ZMQ_HOST`           | `127.0.0.1`        | Target host for connecting to Groot2 / ZMQ servers                                     |
-| `--open-browser`              | `OPEN_BROWSER`       | `false`            | Automatically open browser at `http://localhost:<HTTP_PORT>` once HTTP server is ready |
-| —                             | `ROS_DOMAIN_ID`      | `0`                | ROS 2 domain identifier (must match the robot)                                         |
-| —                             | `RMW_IMPLEMENTATION` | `rmw_fastrtps_cpp` | Underlying ROS 2 middleware implementation                                             |
+| CLI Flag         | Env Variable         | Default            | Description                                                                            |
+| :--------------- | :------------------- | :----------------- | :------------------------------------------------------------------------------------- |
+| `--http-port`    | `HTTP_PORT`          | `3000`             | HTTP port for serving the web visualizer                                               |
+| `--ws-port`      | `WS_PORT`            | `8080`             | WebSocket port for streaming telemetry                                                 |
+| `--zmq-port`     | `ZMQ_PORT`           | `1667`             | Target port for connecting to Groot2 / ZMQ servers                                     |
+| `--zmq-host`     | `ZMQ_HOST`           | `127.0.0.1`        | Target host for connecting to Groot2 / ZMQ servers                                     |
+| `--open-browser` | `OPEN_BROWSER`       | `false`            | Automatically open browser at `http://localhost:<HTTP_PORT>` once HTTP server is ready |
+| —                | `ROS_DOMAIN_ID`      | `0`                | ROS 2 domain identifier (must match the robot)                                         |
+| —                | `RMW_IMPLEMENTATION` | `rmw_fastrtps_cpp` | Underlying ROS 2 middleware implementation                                             |
 
 ### Docker Compose Configuration Example
 

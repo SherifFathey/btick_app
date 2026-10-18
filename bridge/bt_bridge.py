@@ -799,12 +799,8 @@ def str2bool(v):
 def main():
     default_ws_port = int(os.environ.get("WS_PORT", 8080))
     default_http_port = int(os.environ.get("HTTP_PORT", 3000))
-    default_zmq_port = int(
-        os.environ.get("ZMQ_PORT", os.environ.get("GROOT_PORT", 1667))
-    )
-    default_zmq_host = os.environ.get(
-        "ZMQ_HOST", os.environ.get("GROOT_HOST", "127.0.0.1")
-    )
+    default_zmq_port = int(os.environ.get("ZMQ_PORT", 1667))
+    default_zmq_host = os.environ.get("ZMQ_HOST", "127.0.0.1")
     default_open_browser = str2bool(os.environ.get("OPEN_BROWSER", "false"))
 
     parser = argparse.ArgumentParser(
@@ -827,7 +823,6 @@ def main():
     )
     parser.add_argument(
         "--zmq-host",
-        "--groot-host",
         dest="zmq_host",
         type=str,
         default=default_zmq_host,
@@ -835,7 +830,6 @@ def main():
     )
     parser.add_argument(
         "--zmq-port",
-        "--groot-port",
         dest="zmq_port",
         type=int,
         default=default_zmq_port,

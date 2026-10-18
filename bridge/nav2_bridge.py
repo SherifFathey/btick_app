@@ -20,31 +20,22 @@ import argparse
 # Optional ROS 2 Imports
 HAVE_RCLPY = False
 HAVE_NAV2_MSGS = False
-HAVE_ACTION_MSGS = False
 
 rclpy = None
 Node = None
 QoSProfile = None
 ReliabilityPolicy = None
 HistoryPolicy = None
-qos_profile_action_status_default = None
 
 BehaviorTreeLog = None
 BehaviorTreeStatusChange = None
-GoalStatusArray = None
 
 
 def try_import_nav2_dependencies():
-    """Dynamically attempts to import rclpy, nav2_msgs, and action_msgs."""
-    global HAVE_RCLPY, HAVE_NAV2_MSGS, HAVE_ACTION_MSGS
-    global \
-        rclpy, \
-        Node, \
-        QoSProfile, \
-        ReliabilityPolicy, \
-        HistoryPolicy, \
-        qos_profile_action_status_default
-    global BehaviorTreeLog, BehaviorTreeStatusChange, GoalStatusArray
+    """Dynamically attempts to import rclpy and nav2_msgs."""
+    global HAVE_RCLPY, HAVE_NAV2_MSGS
+    global rclpy, Node, QoSProfile, ReliabilityPolicy, HistoryPolicy
+    global BehaviorTreeLog, BehaviorTreeStatusChange
 
     if not HAVE_RCLPY:
         try:
@@ -55,15 +46,6 @@ def try_import_nav2_dependencies():
                 ReliabilityPolicy as _ReliabilityPolicy,
                 HistoryPolicy as _HistoryPolicy,
             )
-
-            try:
-                from rclpy.qos import (
-                    qos_profile_action_status_default as _qos_action_default,
-                )
-
-                qos_profile_action_status_default = _qos_action_default
-            except ImportError:
-                pass
 
             rclpy = _rclpy
             Node = _Node
@@ -87,15 +69,6 @@ def try_import_nav2_dependencies():
             BehaviorTreeLog = _BehaviorTreeLog
             BehaviorTreeStatusChange = _BehaviorTreeStatusChange
             HAVE_NAV2_MSGS = True
-        except ImportError:
-            pass
-
-    if HAVE_RCLPY and not HAVE_ACTION_MSGS:
-        try:
-            from action_msgs.msg import GoalStatusArray as _GoalStatusArray
-
-            GoalStatusArray = _GoalStatusArray
-            HAVE_ACTION_MSGS = True
         except ImportError:
             pass
 
@@ -150,13 +123,10 @@ class Nav2ROS2Bridge:
         self._stop_event = threading.Event()
         self.node = None
         self.sub_log = None
-        self.action_subs = []
         self.trees = {}  # tree_id -> tree_data
         self.running = False
         self.thread = None
         self.liveness_thread = None
-        self.active_goal_id = None
-        self.completed_goal_ids = set()
         self.last_heartbeat_time = 0.0
         self.last_log_message_time = 0.0
         self.current_execution_instance_id = None
@@ -250,13 +220,6 @@ class Nav2ROS2Bridge:
                 except Exception:
                     pass
                 self.sub_log = None
-
-            for sub in self.action_subs:
-                try:
-                    self.node.destroy_subscription(sub)
-                except Exception:
-                    pass
-            self.action_subs.clear()
 
             try:
                 self.node.destroy_node()
@@ -410,29 +373,6 @@ class Nav2ROS2Bridge:
                         self._nav2_log_cb,
                         qos_transitions,
                     )
-
-                # Nav2 Action Status Listeners (Detect Goal Succeeded, Aborted, Canceled)
-                if HAVE_ACTION_MSGS and GoalStatusArray is not None:
-                    qos_action = (
-                        qos_profile_action_status_default
-                        if qos_profile_action_status_default is not None
-                        else qos_transitions
-                    )
-                    for action_status_topic in (
-                        "/navigate_to_pose/_action/status",
-                        "/navigate_through_poses/_action/status",
-                        "/follow_path/_action/status",
-                    ):
-                        try:
-                            sub = self.node.create_subscription(
-                                GoalStatusArray,
-                                action_status_topic,
-                                self._nav2_action_status_cb,
-                                qos_action,
-                            )
-                            self.action_subs.append(sub)
-                        except Exception:
-                            pass
 
                 print(f"[NAV2] ROS 2 listeners active ({self.log_topic})")
 
@@ -610,53 +550,6 @@ class Nav2ROS2Bridge:
             }
             if self.on_event_callback:
                 self.on_event_callback(trans)
-        except Exception:
-            pass
-
-    def _nav2_action_status_cb(self, msg):
-        """
-        Monitors Nav2 ROS 2 Action Server status lifecycle as the authoritative finalization signal.
-        Separates live BT transitions (/behavior_tree_log) from action lifecycle finalization.
-        """
-        try:
-            status_list = getattr(msg, "status_list", [])
-            if not status_list:
-                return
-
-            for item in status_list:
-                st = getattr(item, "status", None)
-                if st is None:
-                    continue
-
-                goal_info = getattr(item, "goal_info", None)
-                goal_id = getattr(goal_info, "goal_id", None)
-                raw_uuid = getattr(goal_id, "uuid", None)
-                uuid_hex = bytes(raw_uuid).hex() if raw_uuid is not None else None
-
-                # STATUS_ACCEPTED (1) or STATUS_EXECUTING (2):
-                # Mark as active goal. Trigger new execution cycle if new goal UUID detected.
-                if st in (1, 2):
-                    if uuid_hex and uuid_hex not in self.completed_goal_ids:
-                        if self.current_cycle_id != uuid_hex:
-                            self.start_new_execution_cycle(uuid_hex)
-                        self.active_goal_id = uuid_hex
-                    continue
-
-                # Finalization: STATUS_SUCCEEDED (4), STATUS_CANCELED (5), STATUS_ABORTED (6)
-                if st in (4, 5, 6):
-                    # Prevent stale TRANSIENT_LOCAL replay from finalizing previous completed goals
-                    if uuid_hex:
-                        if uuid_hex in self.completed_goal_ids:
-                            continue
-                        if self.active_goal_id and self.active_goal_id != uuid_hex:
-                            continue
-                        self.completed_goal_ids.add(uuid_hex)
-                        if self.active_goal_id == uuid_hex:
-                            self.active_goal_id = None
-
-                    # Navigation action completion is not a behavior-tree
-                    # transition. The actual Nav2 behavior-tree topics remain
-                    # the sole source of node status updates.
         except Exception:
             pass
 

@@ -530,10 +530,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ? "bg-surface-hover text-text-primary font-bold shadow-xs"
                     : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-surface-hover"
                 }`}
-                title="Multi-tree Grid View"
+                title="Multi-Tree View"
               >
                 <Grid className="w-3.5 h-3.5" />
-                <span>Grid</span>
+                <span>Multi-Tree</span>
               </button>
             </div>
           </div>

@@ -105,32 +105,6 @@ export const BTMonitorEdge: React.FC<EdgeProps> = ({
         }}
         interactionWidth={28}
       />
-
-      {/* Endpoint circles on hover/select — always in DOM with opacity transition to avoid DOM mutation thrashing */}
-      <g
-        className="pointer-events-none transition-opacity duration-150"
-        style={{
-          opacity: isHovered || selected ? 1 : 0,
-          pointerEvents: "none",
-        }}
-      >
-        <circle
-          cx={sourceX}
-          cy={sourceY}
-          r={4.5}
-          fill="#0284c7"
-          stroke="#ffffff"
-          strokeWidth={1.5}
-        />
-        <circle
-          cx={targetX}
-          cy={targetY}
-          r={4.5}
-          fill="#0284c7"
-          stroke="#ffffff"
-          strokeWidth={1.5}
-        />
-      </g>
     </g>
   );
 };

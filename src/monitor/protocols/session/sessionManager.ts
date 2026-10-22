@@ -14,7 +14,7 @@ import {
   RecordedNodeExecution,
   BTPortDetail,
 } from "../../types/bt";
-import { isMatchNode } from "../../utils/xmlParser";
+import { isMatchNode, attachRootCard } from "../../utils/xmlParser";
 
 /**
  * Normalizes a tree identifier or name by stripping ephemeral instance/PID/timestamp/hex suffixes
@@ -927,10 +927,13 @@ export function normalizeRecordingSession(
       }))
     : undefined;
 
+  const normalizedTrees = candidate.trees.map((t) =>
+    attachRootCard(t as BTTreeModel),
+  );
   const initialTrees =
     Array.isArray(candidate.initial_trees) && candidate.initial_trees.length > 0
-      ? candidate.initial_trees
-      : candidate.trees;
+      ? candidate.initial_trees.map((t) => attachRootCard(t as BTTreeModel))
+      : normalizedTrees;
 
   const snapshots = normalizeAndKeyframeSnapshots(
     candidate.snapshots,
@@ -955,12 +958,10 @@ export function normalizeRecordingSession(
       typeof candidate.recorded_at === "string"
         ? candidate.recorded_at
         : new Date().toISOString(),
-    trees: candidate.trees,
+    trees: normalizedTrees,
     events,
     snapshots,
-    initial_trees: Array.isArray(candidate.initial_trees)
-      ? candidate.initial_trees
-      : undefined,
+    initial_trees: initialTrees,
     node_executions: nodeExecutions,
   };
 }

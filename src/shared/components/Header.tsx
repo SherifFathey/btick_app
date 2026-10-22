@@ -148,17 +148,49 @@ export const Header: React.FC<HeaderProps> = ({
   const handleSessionFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      console.log(
+        `[BTick][LoadSession] Selected file: "${file.name}" (size: ${file.size} bytes)`,
+      );
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
-          const sessionData = JSON.parse(event.target?.result as string);
+          const rawText = event.target?.result as string;
+          console.log(
+            `[BTick][LoadSession] File read successfully (${rawText.length} chars). Parsing JSON...`,
+          );
+          const sessionData = JSON.parse(rawText);
+          console.log("[BTick][LoadSession] Raw session JSON parsed:", {
+            hasEvents: Array.isArray(sessionData.events),
+            eventCount: sessionData.events?.length,
+            hasTrees: Array.isArray(sessionData.trees),
+            treeCount: sessionData.trees?.length,
+            hasInitialTrees: Array.isArray(sessionData.initial_trees),
+            initialTreeCount: sessionData.initial_trees?.length,
+            id: sessionData.id,
+            name: sessionData.name,
+          });
+
           const session = normalizeRecordingSession(sessionData);
           if (!session) {
+            console.error(
+              "[BTick][LoadSession] normalizeRecordingSession validation failed on payload:",
+              sessionData,
+            );
             throw new Error("Invalid session recording format");
           }
+          console.log("[BTick][LoadSession] Normalized session ready:", {
+            id: session.id,
+            name: session.name,
+            trees: session.trees?.map((t: any) => t.tree_id),
+            initial_trees: session.initial_trees?.map((t: any) => t.tree_id),
+            eventsCount: session.events?.length,
+          });
           onLoadSession(session);
         } catch (err) {
-          console.error("Error loading session file:", err);
+          console.error(
+            "[BTick][LoadSession] Error loading session file:",
+            err,
+          );
           alert("Failed to parse session recording file.");
         } finally {
           if (sessionInputRef.current) {
@@ -167,7 +199,10 @@ export const Header: React.FC<HeaderProps> = ({
         }
       };
       reader.onerror = (err) => {
-        console.error("Error reading session file:", err);
+        console.error(
+          "[BTick][LoadSession] Error reading session file from disk:",
+          err,
+        );
         alert("Failed to read session file from disk.");
         if (sessionInputRef.current) {
           sessionInputRef.current.value = "";

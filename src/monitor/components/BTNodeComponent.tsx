@@ -643,6 +643,12 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
     }, []);
 
     const isHorizontal = orientation === "horizontal";
+    const isRoot =
+      nodeData?.type === "Root" ||
+      nodeData?.name === "Root" ||
+      nodeData?.id?.startsWith("Root_") ||
+      nodeData?.parent_id === "" ||
+      !nodeData?.parent_id;
     const nodeStatus = nodeData?.status || "IDLE";
     const isRunning = nodeStatus === "RUNNING";
     const isSuccess = nodeStatus === "SUCCESS";
@@ -1003,20 +1009,30 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
         )}
 
         {/* Target Handles */}
-        {/* target-top: always visible above the card in vertical layout */}
+        {/* target-top: visible above the card in vertical layout unless it's the root node */}
         <Handle
           type="target"
           position={Position.Top}
           id="target-top"
           className={
-            !isHorizontal ? `${handleStyle} !w-5 !h-5 !z-10` : "!hidden"
+            !isHorizontal
+              ? isRoot
+                ? "!opacity-0 pointer-events-none"
+                : `${handleStyle} !w-5 !h-5 !z-10`
+              : "!hidden"
           }
         />
         <Handle
           type="target"
           position={Position.Left}
           id="target-left"
-          className={isHorizontal ? `${handleStyle} !z-10` : "!hidden"}
+          className={
+            isHorizontal
+              ? isRoot
+                ? "!opacity-0 pointer-events-none"
+                : `${handleStyle} !z-10`
+              : "!hidden"
+          }
         />
 
         {/* Delay progress follows the selected node ring geometry starting from the parent connection port */}

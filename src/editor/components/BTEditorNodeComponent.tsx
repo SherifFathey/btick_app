@@ -159,13 +159,25 @@ export const BTEditorNodeComponent: React.FC<{ data: BTEditorNodeData }> = memo(
           type="target"
           position={Position.Top}
           id="target-top"
-          className={!isHorizontal ? handleStyle : "!hidden"}
+          className={
+            !isHorizontal
+              ? isRoot
+                ? "!opacity-0 pointer-events-none"
+                : handleStyle
+              : "!hidden"
+          }
         />
         <Handle
           type="target"
           position={Position.Left}
           id="target-left"
-          className={isHorizontal ? handleStyle : "!hidden"}
+          className={
+            isHorizontal
+              ? isRoot
+                ? "!opacity-0 pointer-events-none"
+                : handleStyle
+              : "!hidden"
+          }
         />
 
         {/* Card Header: Category badge + validation flags / reconnect badge */}

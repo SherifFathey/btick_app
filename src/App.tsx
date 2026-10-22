@@ -60,6 +60,7 @@ import {
   isMatchNode,
   getTreeStatus,
   parseXmlToBTTreeModel,
+  attachRootCard,
 } from "./monitor/utils/xmlParser";
 import { ErrorBoundary } from "./shared/components/ErrorBoundary";
 import { Sidebar } from "./shared/components/Sidebar";
@@ -147,8 +148,27 @@ export const preserveRecordingState = (
   if (!current) {
     return next;
   }
+
+  // If a tree replay is currently active, preserve selectedTreeId so incoming
+  // live messages don't override the replaying tree selection.
+  const activeReplay = current.treeReplays?.get(current.selectedTreeId || "");
+  const isSelectedTreeReplaying = Boolean(
+    activeReplay?.replayState?.isReplaying,
+  );
+  const anyTreeReplaying = current.treeReplays
+    ? Array.from(current.treeReplays.values()).some(
+        (tr) => tr?.replayState?.isReplaying,
+      )
+    : false;
+
+  const nextSelectedTreeId =
+    isSelectedTreeReplaying || (anyTreeReplaying && current.selectedTreeId)
+      ? current.selectedTreeId
+      : next.selectedTreeId;
+
   return {
     ...next,
+    selectedTreeId: nextSelectedTreeId,
     isRecording: Boolean(current.isRecording),
     recordingTreeIds: current.recordingTreeIds
       ? new Set(current.recordingTreeIds)
@@ -2982,7 +3002,7 @@ export const App: React.FC = () => {
     treesMap: new Map(
       (session.initial_trees || session.trees).map((tree) => [
         tree.tree_id,
-        tree,
+        attachRootCard(tree),
       ]),
     ),
   });
@@ -3282,8 +3302,20 @@ export const App: React.FC = () => {
   ]);
 
   const handleLoadSession = (session: RecordingSession) => {
+    console.log("[BTick][LoadSession] handleLoadSession called with session:", {
+      id: session?.id,
+      name: session?.name,
+      treesCount: session?.trees?.length,
+      initialTreesCount: session?.initial_trees?.length,
+      eventsCount: session?.events?.length,
+      activeProtocol,
+    });
+
     const normalizedSession = normalizeRecordingSession(session);
     if (!normalizedSession) {
+      console.error(
+        "[BTick][LoadSession] normalizeRecordingSession returned null in handleLoadSession!",
+      );
       return;
     }
     const loadedSession = cloneRecordingSession(normalizedSession);
@@ -3303,6 +3335,13 @@ export const App: React.FC = () => {
       (loadedSession.initial_trees || loadedSession.trees)[0]?.tree_id ||
       activeTreeId ||
       "MainTree";
+
+    console.log("[BTick][LoadSession] Setting up replay for tree:", {
+      targetTreeId,
+      replayState: prepared.replayState,
+      treesInPreparedMap: Array.from(prepared.treesMap.keys()),
+    });
+
     const storeKey = getTreeStoreKey(activeProtocol, targetTreeId);
     lastAppliedReplayRef.current.delete(storeKey);
     replayClockRef.current.delete(storeKey);
@@ -3354,6 +3393,12 @@ export const App: React.FC = () => {
         nextTreeReplays,
       );
 
+      console.log("[BTick][LoadSession] Replay registered in session state:", {
+        registeredTreeReplays: Array.from(nextTreeReplays.keys()),
+        compositeTrees: Array.from(compositeTreesMap.keys()),
+        selectedTreeId: targetTreeId,
+      });
+
       return {
         ...prev,
         [activeProtocol]: {
@@ -3366,6 +3411,31 @@ export const App: React.FC = () => {
           treeReplays: nextTreeReplays,
         },
       };
+    });
+
+    // Emit user logs so it prints in the terminal where the bridge/app is running:
+    // 1. [BTICK] Action: Tree discovered (Loaded from file) | Status: Success | Tree: <TreeName> | Nodes: <Count>
+    // 2. [BTICK] Action: Connected (Loaded from file) | Status: Running | Tree: <TreeName> | Nodes: <Count>
+    const primaryTree =
+      (loadedSession.initial_trees || loadedSession.trees)?.[0] ||
+      loadedSession.trees?.[0];
+    const treeName = primaryTree?.tree_name || targetTreeId;
+    const nodeCount = primaryTree?.nodes?.length ?? 0;
+
+    sendUserLog({
+      protocol: activeProtocol,
+      action: "Tree discovered (Loaded from file)",
+      status: "Success",
+      treeName,
+      nodeCount,
+    });
+
+    sendUserLog({
+      protocol: activeProtocol,
+      action: "Connected (Loaded from file)",
+      status: "Running",
+      treeName,
+      nodeCount,
     });
 
     // Immediately apply keyframe 0 so nodes reflect the recorded state

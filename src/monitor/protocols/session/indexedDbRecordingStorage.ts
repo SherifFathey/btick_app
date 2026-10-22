@@ -73,9 +73,6 @@ const migrateLegacyDatabase = async (
                   targetTx.store.put(row);
                 }
                 await targetTx.done;
-                console.debug(
-                  `[BTick][IDB] Migrated ${rows.length} records from ${legacyName} to ${DATABASE_NAME}`,
-                );
               }
               legacyDb.close();
               try {
@@ -111,9 +108,6 @@ const openRecordingDatabase = (): Promise<IDBPDatabase<RecordingDatabase>> => {
 
   const connectionId = nextConnectionId++;
   sharedDatabasePromise = new Promise((resolve, reject) => {
-    console.debug(`[BTick][IDB] [#${connectionId}] Opening IndexedDB:`, {
-      name: DATABASE_NAME,
-    });
     const request = indexedDB.open(DATABASE_NAME, 1);
 
     request.onblocked = (event) => {
@@ -134,10 +128,6 @@ const openRecordingDatabase = (): Promise<IDBPDatabase<RecordingDatabase>> => {
     };
 
     request.onupgradeneeded = (event) => {
-      console.debug(`[BTick][IDB] [#${connectionId}] onupgradeneeded`, {
-        oldVersion: event.oldVersion,
-        newVersion: event.newVersion,
-      });
       const db = request.result;
       const transaction = request.transaction;
       const store = db.objectStoreNames.contains(STORE_NAME)
@@ -151,11 +141,6 @@ const openRecordingDatabase = (): Promise<IDBPDatabase<RecordingDatabase>> => {
     };
 
     request.onsuccess = async () => {
-      console.debug(`[BTick][IDB] [#${connectionId}] onsuccess`, {
-        name: request.result.name,
-        version: request.result.version,
-        stores: Array.from(request.result.objectStoreNames),
-      });
       const db = request.result;
       (db as any).__connectionId = connectionId;
 
@@ -207,7 +192,6 @@ export class IndexedDbRecordingStorage implements RecordingStorageAdapter {
     if (this.sessionId) {
       throw new Error(`Recording session "${this.sessionId}" is already open`);
     }
-    console.debug("[BTick][IDB] Opening database for session:", sessionId);
     const database = await this.getDatabase();
 
     await database.put(STORE_NAME, {
@@ -215,7 +199,6 @@ export class IndexedDbRecordingStorage implements RecordingStorageAdapter {
       sequence: 0,
       record: { kind: "header", sessionId, initialTrees, metadata },
     });
-    console.debug("[BTick][IDB] Header persisted for session:", sessionId);
     this.sessionId = sessionId;
     this.nextSequence = 1;
     this.pendingRecords = [];
@@ -279,9 +262,6 @@ export class IndexedDbRecordingStorage implements RecordingStorageAdapter {
   }
 
   async dispose(): Promise<void> {
-    console.debug(
-      `[BTick][IDB] storage.dispose() called for session: ${this.sessionId}`,
-    );
     if (this.flushTimeoutId) {
       clearTimeout(this.flushTimeoutId);
       this.flushTimeoutId = null;
@@ -456,7 +436,6 @@ export class IndexedDbRecordingStorage implements RecordingStorageAdapter {
       }
 
       for (const staleId of staleSessionIds) {
-        console.debug(`[BTick][IDB] Deleting stale orphan session: ${staleId}`);
         await this.deleteSession(staleId);
       }
     } catch (err) {
@@ -520,10 +499,6 @@ export class IndexedDbRecordingStorage implements RecordingStorageAdapter {
 
 export const closeSharedRecordingDatabase = async (): Promise<void> => {
   if (sharedDatabase) {
-    const id = (sharedDatabase as any).__connectionId;
-    console.debug(
-      `[BTick][IDB] [#${id}] Closing shared database connection explicitly`,
-    );
     sharedDatabase.close();
     sharedDatabase = null;
     sharedDatabasePromise = null;

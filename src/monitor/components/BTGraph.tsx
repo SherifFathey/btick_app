@@ -723,9 +723,6 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   const performExplicitFitView = useCallback(
     (options?: any) => {
       if (nodes.length === 0) return Promise.resolve(false);
-      console.log(
-        "[BTGraph][Viewport] performExplicitFitView executing (fit-view)",
-      );
       const isOptionsObject =
         options && typeof options === "object" && !("nativeEvent" in options);
       const fitOptions = isOptionsObject
@@ -992,12 +989,6 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           initialNodes.find((n: Node) => n.id === latestActiveNode!.id);
         if (target) {
           if (isDraggingNodeRef.current) return;
-          console.log(
-            "[BTGraph][Viewport] centerOnActiveNode -> setCenter called for",
-            target.id,
-            "pos:",
-            target.position,
-          );
           setCenter(target.position.x + 120, target.position.y + 40, {
             duration: 350,
           });
@@ -1091,10 +1082,6 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       lastExplicitFittedSessionKeyRef.current = treeSessionKey;
       lastFittedTokenRef.current = treeSessionKey;
 
-      console.log(
-        "[BTGraph][Viewport] checkAndFit -> calling performExplicitFitView (first priority) for",
-        treeSessionKey,
-      );
       const fitPromise = performExplicitFitView({ duration: 0 });
       if (fitPromise && typeof fitPromise.then === "function") {
         fitPromise.then((res: boolean) => {
@@ -1450,10 +1437,6 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         fitView={!viewport}
         fitViewOptions={{ ...DEFAULT_FIT_VIEW_OPTIONS, duration: 0 }}
         onMove={(_, nextViewport) => {
-          console.log(
-            "[BTGraph][Viewport] onMove (viewport changed):",
-            nextViewport,
-          );
           onViewportChange?.(nextViewport);
           if (contextMenu) {
             positionContextMenu(contextMenu.anchorElement);

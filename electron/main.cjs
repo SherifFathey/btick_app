@@ -278,11 +278,7 @@ function registerIpcHandlers() {
 
   // Handle renderer ready and get_tree requests
   ipcMain.on("renderer_ready", (event) => {
-    console.debug("[BTick] UI renderer ready");
     if (lastTreeMessage) {
-      console.debug(
-        `[BTick] Sending active tree "${lastTreeMessage.tree_name || lastTreeMessage.tree_id}" to UI`,
-      );
       event.reply("ros2_event", lastTreeMessage);
     }
     sendBridgeMessage({ type: "get_tree" });
@@ -290,9 +286,6 @@ function registerIpcHandlers() {
 
   ipcMain.on("get_tree", (event) => {
     if (lastTreeMessage) {
-      console.debug(
-        `[BTick] Responding to get_tree request with "${lastTreeMessage.tree_name || lastTreeMessage.tree_id}"`,
-      );
       event.reply("ros2_event", lastTreeMessage);
     }
     sendBridgeMessage({ type: "get_tree" });
@@ -384,11 +377,7 @@ function createWindow() {
   });
 
   mainWindow.webContents.on("did-finish-load", () => {
-    console.debug("[BTick] UI window loaded");
     if (lastTreeMessage) {
-      console.debug(
-        `[BTick] Auto-dispatching cached tree "${lastTreeMessage.tree_name || lastTreeMessage.tree_id}" to UI`,
-      );
       mainWindow.webContents.send("ros2_event", lastTreeMessage);
     }
   });

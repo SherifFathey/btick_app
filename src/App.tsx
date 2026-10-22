@@ -3287,6 +3287,17 @@ export const App: React.FC = () => {
       return;
     }
     const loadedSession = cloneRecordingSession(normalizedSession);
+
+    // Ensure all loaded trees match the current active protocol so protocol filtering doesn't hide them
+    for (const t of loadedSession.trees || []) {
+      (t as any).source = activeProtocol;
+      (t as any).protocol = activeProtocol;
+    }
+    for (const t of loadedSession.initial_trees || []) {
+      (t as any).source = activeProtocol;
+      (t as any).protocol = activeProtocol;
+    }
+
     const prepared = prepareReplaySession(loadedSession, "loaded");
     const targetTreeId =
       (loadedSession.initial_trees || loadedSession.trees)[0]?.tree_id ||
@@ -3299,16 +3310,43 @@ export const App: React.FC = () => {
     setSessions((prev) => {
       const sess = prev[activeProtocol];
       const nextTreeReplays = new Map(sess.treeReplays || []);
-      nextTreeReplays.set(targetTreeId, {
-        protocol: activeProtocol,
-        treeId: targetTreeId,
-        session: loadedSession,
-        replayState: prepared.replayState,
-        treesMap: prepared.treesMap,
-        events: loadedSession.events,
-        lastRecordedSession: null,
-        currentSession: loadedSession,
-      });
+
+      // Register all trees present in the prepared replay session so multi-tree replay works
+      for (const [tId] of prepared.treesMap.entries()) {
+        nextTreeReplays.set(tId, {
+          protocol: activeProtocol,
+          treeId: tId,
+          session: loadedSession,
+          replayState: { ...prepared.replayState },
+          treesMap: prepared.treesMap,
+          events: loadedSession.events,
+          lastRecordedSession: null,
+          currentSession: loadedSession,
+        });
+      }
+
+      // Also ensure targetTreeId is set if not already in prepared.treesMap
+      if (!nextTreeReplays.has(targetTreeId)) {
+        nextTreeReplays.set(targetTreeId, {
+          protocol: activeProtocol,
+          treeId: targetTreeId,
+          session: loadedSession,
+          replayState: prepared.replayState,
+          treesMap: prepared.treesMap,
+          events: loadedSession.events,
+          lastRecordedSession: null,
+          currentSession: loadedSession,
+        });
+      }
+
+      // Remove loaded tree IDs from closedTreeIds so they are not hidden
+      const nextClosedTreeIds = new Set(sess.closedTreeIds || []);
+      for (const t of loadedSession.trees || []) {
+        nextClosedTreeIds.delete(t.tree_id);
+      }
+      for (const t of loadedSession.initial_trees || []) {
+        nextClosedTreeIds.delete(t.tree_id);
+      }
 
       const liveTreesMap = sess.liveTreesMap || sess.treesMap;
       const compositeTreesMap = buildCompositeTreesMap(
@@ -3320,6 +3358,7 @@ export const App: React.FC = () => {
         ...prev,
         [activeProtocol]: {
           ...sess,
+          closedTreeIds: nextClosedTreeIds,
           treesMap: compositeTreesMap,
           liveTreesMap,
           selectedTreeId: targetTreeId,
@@ -3328,6 +3367,11 @@ export const App: React.FC = () => {
         },
       };
     });
+
+    // Immediately apply keyframe 0 so nodes reflect the recorded state
+    if (loadedSession.events && loadedSession.events.length > 0) {
+      applyReplayIndex(0, loadedSession, targetTreeId);
+    }
   };
 
   const handleSwitchToLive = () => {

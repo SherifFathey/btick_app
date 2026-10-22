@@ -26,11 +26,6 @@ export const hasElectronRecordingStorage = (): boolean => {
     typeof electronAPI.recordingStorage.appendBatch === "function" &&
     typeof electronAPI.recordingStorage.finalize === "function",
   );
-  console.debug("[BTick][Storage] Backend detection:", {
-    isElectron: Boolean(electronAPI?.isElectron),
-    hasRecordingStorage: Boolean(electronAPI?.recordingStorage),
-    selected: available ? "electron" : "browser",
-  });
   return available;
 };
 

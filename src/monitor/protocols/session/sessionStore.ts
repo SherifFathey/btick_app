@@ -121,10 +121,6 @@ export class SessionStore {
           }
         }
         this.startupQueue = [];
-        console.debug(
-          "[BTick][SessionStore] Session started; startup queue flushed.",
-          { sessionId },
-        );
       } catch (err) {
         this._degraded = true;
         this.startupQueue = [];
@@ -320,10 +316,6 @@ export class SessionStore {
 
     try {
       const session = await adapter.finalize(finalTrees);
-      console.debug("[BTick][SessionStore] Session finalized.", {
-        sessionId,
-        events: session?.events?.length ?? 0,
-      });
       this.reset();
       return session;
     } catch (err) {
@@ -404,7 +396,7 @@ export class SessionStore {
       try {
         void this.adapter.updateHeartbeat?.(this._sessionId, Date.now());
       } catch (err) {
-        console.debug("[BTick][SessionStore] Heartbeat update error:", err);
+        // Ignore heartbeat update errors
       }
     }
   }

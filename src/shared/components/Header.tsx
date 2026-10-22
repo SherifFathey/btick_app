@@ -160,11 +160,22 @@ export const Header: React.FC<HeaderProps> = ({
         } catch (err) {
           console.error("Error loading session file:", err);
           alert("Failed to parse session recording file.");
+        } finally {
+          if (sessionInputRef.current) {
+            sessionInputRef.current.value = "";
+          }
+        }
+      };
+      reader.onerror = (err) => {
+        console.error("Error reading session file:", err);
+        alert("Failed to read session file from disk.");
+        if (sessionInputRef.current) {
+          sessionInputRef.current.value = "";
         }
       };
       reader.readAsText(file);
-      e.target.value = "";
     }
+    e.target.value = "";
   };
 
   const handleXmlFile = (e: React.ChangeEvent<HTMLInputElement>) => {

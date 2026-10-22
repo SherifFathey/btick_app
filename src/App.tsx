@@ -1158,7 +1158,7 @@ export const App: React.FC = () => {
     });
   }, [treesMap, activeProtocol]);
   const visibleTrees = useMemo(
-    () => treesList.filter((t) => t.visible),
+    () => treesList.filter((t) => t.visible !== false),
     [treesList],
   );
 

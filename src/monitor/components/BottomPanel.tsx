@@ -860,7 +860,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                       >
                         <td className="py-1.5 px-3">
                           <Circle
-                            className={`w-2.5 h-2.5 text-rose-500 fill-rose-500 ${node.is_paused ? "bt-breakpoint-pulse" : ""}`}
+                            className={`w-2.5 h-2.5 text-rose-500 fill-rose-500 ${node.is_paused || node.status === "PAUSED_AT_BREAKPOINT" ? "bt-breakpoint-pulse" : ""}`}
                           />
                         </td>
                         <td
@@ -882,7 +882,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                           {treeName}
                         </td>
                         <td className="py-1.5 px-3 shrink-0 whitespace-nowrap">
-                          {node.is_paused ? (
+                          {node.is_paused ||
+                          node.status === "PAUSED_AT_BREAKPOINT" ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold bg-state-paused-bg text-state-paused-text border border-state-paused-border font-mono shrink-0">
                               <span className="w-1.5 h-1.5 rounded-full bg-state-paused-border bt-pause-pulse shrink-0" />
                               <span>PAUSED AT BP</span>

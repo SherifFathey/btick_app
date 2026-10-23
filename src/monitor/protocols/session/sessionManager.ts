@@ -369,6 +369,9 @@ export const getReplayNodeStatus = (
   ) {
     return node.status;
   }
+  if (event.status === ("RESUMED" as any)) {
+    return (node.last_result as NodeStatus) || "IDLE";
+  }
   if (
     event.status === "IDLE" &&
     (node.status === "SUCCESS" || node.status === "FAILURE")
@@ -488,9 +491,17 @@ export const applySingleReplayEvent = (
         delete updatedPorts[update.port_name];
       }
     });
+    const isNodePortOrBB =
+      event.status === ("NODE_PORT_UPDATE" as any) ||
+      event.status === ("BLACKBOARD_UPDATE" as any);
+    const nextIsPaused = isNodePortOrBB
+      ? node.is_paused
+      : event.status === "PAUSED_AT_BREAKPOINT";
+
     return {
       ...node,
       status: replayStatus,
+      is_paused: nextIsPaused,
       last_result:
         event.status === "SUCCESS" || event.status === "FAILURE"
           ? event.status
@@ -672,9 +683,17 @@ export class IncrementalKeyframeRecorder {
         }
       });
 
+      const isNodePortOrBB =
+        event.status === ("NODE_PORT_UPDATE" as any) ||
+        event.status === ("BLACKBOARD_UPDATE" as any);
+      const nextIsPaused = isNodePortOrBB
+        ? node.is_paused
+        : event.status === "PAUSED_AT_BREAKPOINT";
+
       return {
         ...node,
         status: replayStatus,
+        is_paused: nextIsPaused,
         last_result:
           event.status === "SUCCESS" || event.status === "FAILURE"
             ? event.status

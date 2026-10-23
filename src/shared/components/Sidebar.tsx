@@ -867,7 +867,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                       <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-border-subtle text-[10px]">
                         <div className="flex items-center gap-1.5">
-                          {node.is_paused ? (
+                          {node.is_paused ||
+                          node.status === "PAUSED_AT_BREAKPOINT" ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold bg-state-paused-bg text-state-paused-text border border-state-paused-border">
                               ⏸️ PAUSED
                             </span>

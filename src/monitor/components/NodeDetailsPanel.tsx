@@ -99,7 +99,10 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
       node?.fault_mode === "DELAY" ||
       (!!node?.fault_delay_ms && node.fault_delay_ms > 0) ||
       (!!node?.delay_total_ms && isDelayActive));
-  const isNodeExecutionPaused = !isNav2 && node?.is_paused === true;
+  const isNodeExecutionPaused =
+    !isNav2 &&
+    (node?.is_paused === true ||
+      (node?.status as string) === "PAUSED_AT_BREAKPOINT");
   const hasRuntimeModifications =
     hasBreakpoint || hasFaultInjection || hasDelay || isNodeExecutionPaused;
   const initialDelayMs = node?.delay_total_ms || node?.fault_delay_ms || 1000;

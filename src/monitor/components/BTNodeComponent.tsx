@@ -653,7 +653,10 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
     const isRunning = nodeStatus === "RUNNING";
     const isSuccess = nodeStatus === "SUCCESS";
     const isFailure = nodeStatus === "FAILURE";
-    const isPausedAtBreakpoint = !isNav2 && nodeData?.is_paused === true;
+    const isPausedAtBreakpoint =
+      !isNav2 &&
+      (nodeData?.is_paused === true ||
+        (nodeData?.status as string) === "PAUSED_AT_BREAKPOINT");
     const isBreakpoint = !isNav2 && !!nodeData?.is_breakpoint;
     const hasFault =
       !isNav2 && !!nodeData?.fault_mode && nodeData.fault_mode !== "NONE";

@@ -358,6 +358,9 @@ export const getReplayNodeStatus = (
   ) {
     return node.status;
   }
+  if (event.status === ("RESUMED" as any)) {
+    return (node.last_result as NodeStatus) || "IDLE";
+  }
   if (
     event.status === "IDLE" &&
     (node.status === "SUCCESS" || node.status === "FAILURE")
@@ -509,9 +512,17 @@ export const applySingleReplayEvent = (
         delete updatedPorts[update.port_name];
       }
     });
+    const isNodePortOrBB =
+      event.status === ("NODE_PORT_UPDATE" as any) ||
+      event.status === ("BLACKBOARD_UPDATE" as any);
+    const nextIsPaused = isNodePortOrBB
+      ? node.is_paused
+      : event.status === "PAUSED_AT_BREAKPOINT";
+
     return {
       ...node,
       status: replayStatus,
+      is_paused: nextIsPaused,
       last_result:
         event.status === "SUCCESS" || event.status === "FAILURE"
           ? event.status
@@ -569,6 +580,7 @@ export const applyRecordedSnapshot = (
         return {
           ...snapshotNode,
           status: node.status,
+          is_paused: node.is_paused,
           last_result: node.last_result,
           last_start_time: node.last_start_time,
           last_duration: node.last_duration,
@@ -639,9 +651,17 @@ export const applyFallbackReplayRange = (
     for (const ev of treeEvents) {
       currentNodes = currentNodes.map((n) => {
         if (isReplayEventNodeMatch(n, ev)) {
+          const isNodePortOrBB =
+            ev.status === ("NODE_PORT_UPDATE" as any) ||
+            ev.status === ("BLACKBOARD_UPDATE" as any);
+          const nextIsPaused = isNodePortOrBB
+            ? n.is_paused
+            : ev.status === "PAUSED_AT_BREAKPOINT";
+
           return {
             ...n,
             status: getReplayNodeStatus(n, ev),
+            is_paused: nextIsPaused,
             last_duration:
               ev.duration !== undefined && ev.duration > 0
                 ? ev.duration

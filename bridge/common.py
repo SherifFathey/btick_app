@@ -66,6 +66,13 @@ def decode_groot2_blackboard(payload: bytes) -> dict:
                 return data
         except Exception:
             pass
+    # Try pure Python MessagePack decoding (for Docker / lean environments without msgpack C-extension)
+    try:
+        data = decode_msgpack_payload(payload)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
     # Try pure Python CBOR decoding (BehaviorTree.CPP v4 / Groot2 uses CBOR / MessagePack)
     try:
         data = decode_cbor_payload(payload)
@@ -82,6 +89,117 @@ def decode_groot2_blackboard(payload: bytes) -> dict:
     except Exception:
         pass
     return {}
+
+
+def decode_msgpack_payload(b: bytes):
+    """Pure-Python minimal MessagePack decoder for Docker / lean runtime environments."""
+    idx = 0
+
+    def unpack_val():
+        nonlocal idx
+        if idx >= len(b):
+            return None
+        byte = b[idx]
+        idx += 1
+
+        if byte <= 0x7F:
+            return byte
+        if 0x80 <= byte <= 0x8F:
+            n = byte & 0x0F
+            return {str(unpack_val()): unpack_val() for _ in range(n)}
+        if 0x90 <= byte <= 0x9F:
+            n = byte & 0x0F
+            return [unpack_val() for _ in range(n)]
+        if 0xA0 <= byte <= 0xBF:
+            n = byte & 0x1F
+            s = b[idx : idx + n].decode("utf-8", errors="replace")
+            idx += n
+            return s
+        if byte == 0xC0:
+            return None
+        if byte == 0xC2:
+            return False
+        if byte == 0xC3:
+            return True
+        if byte == 0xCA:
+            val = struct.unpack(">f", b[idx : idx + 4])[0]
+            idx += 4
+            return val
+        if byte == 0xCB:
+            val = struct.unpack(">d", b[idx : idx + 8])[0]
+            idx += 8
+            return val
+        if byte == 0xCC:
+            val = b[idx]
+            idx += 1
+            return val
+        if byte == 0xCD:
+            val = struct.unpack(">H", b[idx : idx + 2])[0]
+            idx += 2
+            return val
+        if byte == 0xCE:
+            val = struct.unpack(">I", b[idx : idx + 4])[0]
+            idx += 4
+            return val
+        if byte == 0xCF:
+            val = struct.unpack(">Q", b[idx : idx + 8])[0]
+            idx += 8
+            return val
+        if byte == 0xD0:
+            val = struct.unpack(">b", b[idx : idx + 1])[0]
+            idx += 1
+            return val
+        if byte == 0xD1:
+            val = struct.unpack(">h", b[idx : idx + 2])[0]
+            idx += 2
+            return val
+        if byte == 0xD2:
+            val = struct.unpack(">i", b[idx : idx + 4])[0]
+            idx += 4
+            return val
+        if byte == 0xD3:
+            val = struct.unpack(">q", b[idx : idx + 8])[0]
+            idx += 8
+            return val
+        if byte == 0xD9:
+            n = b[idx]
+            idx += 1
+            s = b[idx : idx + n].decode("utf-8", errors="replace")
+            idx += n
+            return s
+        if byte == 0xDA:
+            n = struct.unpack(">H", b[idx : idx + 2])[0]
+            idx += 2
+            s = b[idx : idx + n].decode("utf-8", errors="replace")
+            idx += n
+            return s
+        if byte == 0xDB:
+            n = struct.unpack(">I", b[idx : idx + 4])[0]
+            idx += 4
+            s = b[idx : idx + n].decode("utf-8", errors="replace")
+            idx += n
+            return s
+        if byte == 0xDC:
+            n = struct.unpack(">H", b[idx : idx + 2])[0]
+            idx += 2
+            return [unpack_val() for _ in range(n)]
+        if byte == 0xDD:
+            n = struct.unpack(">I", b[idx : idx + 4])[0]
+            idx += 4
+            return [unpack_val() for _ in range(n)]
+        if byte == 0xDE:
+            n = struct.unpack(">H", b[idx : idx + 2])[0]
+            idx += 2
+            return {str(unpack_val()): unpack_val() for _ in range(n)}
+        if byte == 0xDF:
+            n = struct.unpack(">I", b[idx : idx + 4])[0]
+            idx += 4
+            return {str(unpack_val()): unpack_val() for _ in range(n)}
+        if byte >= 0xE0:
+            return struct.unpack(">b", bytes([byte]))[0]
+        return None
+
+    return unpack_val()
 
 
 def decode_cbor_payload(data: bytes):

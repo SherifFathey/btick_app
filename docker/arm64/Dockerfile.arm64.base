@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-zmq \
     python3-yaml \
+    python3-msgpack \
     ros-jazzy-rclpy \
     ros-jazzy-std-msgs \
     ros-jazzy-nav2-msgs \

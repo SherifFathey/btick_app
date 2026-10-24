@@ -56,7 +56,7 @@ class Groot2RequestType:
 
 
 def decode_groot2_blackboard(payload: bytes) -> dict:
-    """Decodes MessagePack or JSON payload returned by Groot2 Blackboard query."""
+    """Decodes MessagePack, CBOR, or JSON payload returned by Groot2 Blackboard query."""
     if not payload or payload == b"\xc0":
         return {}
     if HAVE_MSGPACK:
@@ -66,6 +66,13 @@ def decode_groot2_blackboard(payload: bytes) -> dict:
                 return data
         except Exception:
             pass
+    # Try pure Python CBOR decoding (BehaviorTree.CPP v4 / Groot2 uses CBOR / MessagePack)
+    try:
+        data = decode_cbor_payload(payload)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
     try:
         text = payload.decode("utf-8", errors="ignore").strip()
         if text.startswith("{"):
@@ -77,30 +84,164 @@ def decode_groot2_blackboard(payload: bytes) -> dict:
     return {}
 
 
+def decode_cbor_payload(data: bytes):
+    """Minimal standalone CBOR decoder (RFC 8949) for Groot2 payloads."""
+    idx = 0
+
+    def decode_next():
+        nonlocal idx
+        if idx >= len(data):
+            return None
+        b = data[idx]
+        idx += 1
+        major = b >> 5
+        info = b & 0x1F
+
+        if info < 24:
+            val = info
+        elif info == 24:
+            if idx >= len(data):
+                return None
+            val = data[idx]
+            idx += 1
+        elif info == 25:
+            if idx + 2 > len(data):
+                return None
+            val = struct.unpack(">H", data[idx : idx + 2])[0]
+            idx += 2
+        elif info == 26:
+            if idx + 4 > len(data):
+                return None
+            val = struct.unpack(">I", data[idx : idx + 4])[0]
+            idx += 4
+        elif info == 27:
+            if idx + 8 > len(data):
+                return None
+            val = struct.unpack(">Q", data[idx : idx + 8])[0]
+            idx += 8
+        elif info == 31:
+            val = None
+        else:
+            return None
+
+        if major == 0:  # unsigned int
+            return val
+        elif major == 1:  # negative int
+            return -1 - val
+        elif major == 2:  # byte string
+            if val is None or idx + val > len(data):
+                return None
+            res = data[idx : idx + val]
+            idx += val
+            return res
+        elif major == 3:  # text string
+            if val is None or idx + val > len(data):
+                return None
+            res = data[idx : idx + val].decode("utf-8", errors="replace")
+            idx += val
+            return res
+        elif major == 4:  # array
+            if val is None:
+                return []
+            return [decode_next() for _ in range(val)]
+        elif major == 5:  # map
+            if val is None:
+                return {}
+            d = {}
+            for _ in range(val):
+                k = decode_next()
+                v = decode_next()
+                if k is not None:
+                    d[str(k)] = v
+            return d
+        elif major == 6:  # semantic tag
+            return decode_next()
+        elif major == 7:  # float / simple
+            if info == 20:
+                return False
+            if info == 21:
+                return True
+            if info in (22, 23):
+                return None
+            if info == 25:
+                if idx + 2 > len(data):
+                    return None
+                raw = struct.unpack(">H", data[idx : idx + 2])[0]
+                idx += 2
+                s = (raw >> 15) & 0x0001
+                e = (raw >> 10) & 0x001F
+                f = raw & 0x03FF
+                if e == 0:
+                    return ((-1) ** s) * (2 ** (-14)) * (f / (2**10))
+                elif e == 31:
+                    return (
+                        float("nan")
+                        if f != 0
+                        else (float("-inf") if s else float("inf"))
+                    )
+                else:
+                    return ((-1) ** s) * (2 ** (e - 15)) * (1 + f / (2**10))
+            if info == 26:
+                if idx + 4 > len(data):
+                    return None
+                val = struct.unpack(">f", data[idx : idx + 4])[0]
+                idx += 4
+                return val
+            if info == 27:
+                if idx + 8 > len(data):
+                    return None
+                val = struct.unpack(">d", data[idx : idx + 8])[0]
+                idx += 8
+                return val
+            return None
+        return None
+
+    return decode_next()
+
+
 def flatten_blackboard_dict(data: dict) -> dict:
     """
     Flattens nested/scoped Blackboard JSON returned by BehaviorTree.CPP / Groot2.
     Example:
-      {"@root": {"goal": "(1,2,0)", "speed": 1.5}, "UseElevator": {"door": 1}}
+      {"@root": {"goal": "(1,2,0)", "speed": 1.5}, "ROOT": {"message": "hello"}, "UseElevator": {"door": 1}}
     Becomes:
-      {"goal": "(1,2,0)", "speed": 1.5, "door": 1, "@root/goal": "(1,2,0)", ...}
-    Also unboxes typed entries like {"type": "std::string", "value": "xyz"}.
+      {"goal": "(1,2,0)", "speed": 1.5, "message": "hello", "door": 1, "@root/goal": "(1,2,0)", ...}
+    Also unboxes typed entries like {"type": "std::string", "value": "xyz"}
+    and custom types like {"__type": "Point2D", "x": 1.0, ...}.
     """
     flat = {}
     if not isinstance(data, dict):
         return flat
 
     def unbox(val):
-        if isinstance(val, dict) and "value" in val and len(val) <= 3:
-            return val["value"]
+        if isinstance(val, dict):
+            if "value" in val and len(val) <= 3:
+                return val["value"]
+            if "__type" in val and len(val) == 2:
+                # Type wrapper with single field or val
+                for k, v in val.items():
+                    if k != "__type":
+                        return v
         return val
 
-    for top_k, top_v in data.items():
+    def scope_priority(k):
+        kl = str(k).lower()
+        if kl in ("root", "@root", ""):
+            return 0
+        return 1
+
+    sorted_keys = sorted(data.keys(), key=scope_priority)
+
+    for top_k in sorted_keys:
+        top_v = data[top_k]
         if isinstance(top_v, dict) and not ("value" in top_v and len(top_v) <= 3):
             for sub_k, sub_v in top_v.items():
                 unboxed_sub = unbox(sub_v)
                 flat[sub_k] = unboxed_sub
                 flat[f"{top_k}/{sub_k}"] = unboxed_sub
+                if top_k.lower() in ("@root", "root"):
+                    flat[f"@root/{sub_k}"] = unboxed_sub
+                    flat[f"ROOT/{sub_k}"] = unboxed_sub
         else:
             flat[top_k] = unbox(top_v)
     return flat
@@ -145,6 +286,32 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
 
     tree_id = target_bt.attrib.get("ID", tree_name_override or "MainTree")
     tree_name = tree_name_override or tree_id
+
+    # Parse TreeNodesModel to determine exact port definitions and directions
+    model_defs = {}
+    for model_container in root.findall(".//TreeNodesModel"):
+        for model_elem in model_container:
+            m_id = model_elem.attrib.get("ID", model_elem.tag)
+            ports_dict = {}
+            for port_elem in model_elem:
+                pname = port_elem.attrib.get("name")
+                if not pname:
+                    continue
+                ptag = port_elem.tag.lower()
+                if "output" in ptag:
+                    pdir = "Output"
+                elif "inout" in ptag:
+                    pdir = "Inout"
+                else:
+                    pdir = "Input"
+                ports_dict[pname] = {
+                    "name": pname,
+                    "direction": pdir,
+                    "type": port_elem.attrib.get("type", "string"),
+                    "description": port_elem.attrib.get("description", ""),
+                    "default_value": port_elem.attrib.get("default", ""),
+                }
+            model_defs[m_id] = ports_dict
 
     nodes = []
     blackboard = {}
@@ -248,6 +415,31 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
 
         children_ids = []
 
+        # Build port_details if model definition is known
+        port_details = []
+        node_model_type = id_attr or tag
+        known_ports = model_defs.get(node_model_type, {})
+        for pname, pval in ports.items():
+            is_bb = (
+                pval.startswith("{") and pval.endsWith("}")
+                if hasattr(pval, "endsWith")
+                else (pval.startswith("{") and pval.endswith("}"))
+            )
+            m_info = known_ports.get(pname, {})
+            port_details.append(
+                {
+                    "name": pname,
+                    "direction": m_info.get("direction", "Unknown"),
+                    "type": m_info.get("type", "string"),
+                    "mode": "Blackboard" if is_bb else "Literal",
+                    "value": pval,
+                    "description": m_info.get("description", ""),
+                    "default_value": m_info.get("default_value", ""),
+                }
+            )
+
+        curr_scope = ancestors[-1] if len(ancestors) > 1 else tree_id
+
         node_data = {
             "id": node_id,
             "uid": uid,
@@ -258,6 +450,8 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
             "children_ids": children_ids,
             "ports": ports,
             "attributes": attributes,
+            "port_details": port_details if port_details else None,
+            "subtree_path": curr_scope,
             "status": "IDLE",
         }
         nodes.append(node_data)
@@ -306,6 +500,23 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
 
     root_node_id = nodes[0]["id"] if nodes else ""
 
+    # Collect all subtree IDs and fullpaths for scoped blackboard queries
+    discovered_subtree_targets = []
+    for bt in bt_elements:
+        fp = bt.attrib.get("_fullpath")
+        bid = bt.attrib.get("ID")
+        if fp and fp not in discovered_subtree_targets:
+            discovered_subtree_targets.append(fp)
+        elif bid and bid not in discovered_subtree_targets:
+            discovered_subtree_targets.append(bid)
+    for st in root.findall(".//SubTree"):
+        fp = st.attrib.get("_fullpath")
+        bid = st.attrib.get("ID")
+        if fp and fp not in discovered_subtree_targets:
+            discovered_subtree_targets.append(fp)
+        elif bid and bid not in discovered_subtree_targets:
+            discovered_subtree_targets.append(bid)
+
     return {
         "type": "tree_created",
         "tree_id": tree_id,
@@ -313,6 +524,7 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
         "root_node_id": root_node_id,
         "nodes": nodes,
         "blackboard": blackboard,
+        "subtree_targets": discovered_subtree_targets,
         "status": "IDLE",
         "timestamp": time.time(),
     }

@@ -816,27 +816,13 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
           .replace(/^\{|\}$/g, "")
           .trim();
 
-        // 1. If this port is an Output port, prefer the node's own produced value (isolation per node)
-        const isOutputPort = port.direction === "Output";
+        // Read the node's own resolved port value first (isolated per node execution).
+        // This ensures each node displays the actual value that was passed to it (Input)
+        // or produced by it (Output), rather than being overwritten by other nodes sharing the same blackboard key.
         const nodeOwnVal =
           port.runtime_value ??
           (portName ? nodeData.output_ports_values?.[portName] : undefined);
 
-        if (isOutputPort) {
-          if (nodeOwnVal !== undefined && nodeOwnVal !== "") {
-            return {
-              display:
-                typeof nodeOwnVal === "object" && nodeOwnVal !== null
-                  ? JSON.stringify(nodeOwnVal)
-                  : String(nodeOwnVal),
-            };
-          }
-          // If Output port has not executed or produced an output yet, keep literal key or empty
-          return { display: trimmed };
-        }
-
-        // 2. For Input or Inout/Unknown ports, prefer node's own recorded runtime_value if present,
-        // otherwise read from live blackboard.
         if (nodeOwnVal !== undefined && nodeOwnVal !== "") {
           return {
             display:
@@ -846,7 +832,18 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
           };
         }
 
-        if (Object.prototype.hasOwnProperty.call(blackboard, blackboardKey)) {
+        // If the node has not recorded its own port value yet:
+        // Only read from the live blackboard if the node has actually executed or is running.
+        const hasNodeStarted =
+          nodeData.status !== "IDLE" ||
+          (nodeData.tick_count !== undefined && nodeData.tick_count > 0) ||
+          nodeData.last_result !== undefined ||
+          (nodeData.last_duration !== undefined && nodeData.last_duration > 0);
+
+        if (
+          hasNodeStarted &&
+          Object.prototype.hasOwnProperty.call(blackboard, blackboardKey)
+        ) {
           const currentValue = blackboard[blackboardKey];
           return {
             display:
@@ -855,6 +852,9 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
                 : String(currentValue ?? ""),
           };
         }
+
+        // Before the node's turn/execution, keep the literal port mapping (e.g. "{result}")
+        return { display: trimmed };
       }
 
       return {

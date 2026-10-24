@@ -1123,6 +1123,10 @@ export function startNewExecutionCycle(
         is_paused: true,
       };
     }
+    const resetPortDetails = node.port_details?.map((pd) => ({
+      ...pd,
+      runtime_value: undefined,
+    }));
     return {
       ...node,
       status: "IDLE" as NodeStatus,
@@ -1130,6 +1134,8 @@ export function startNewExecutionCycle(
       delay_active: false,
       delay_started_at: undefined,
       delay_activation_id: undefined,
+      output_ports_values: undefined,
+      port_details: resetPortDetails,
     };
   });
 

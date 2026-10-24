@@ -258,9 +258,24 @@ class Groot2ZMQBridge:
 
                             # Fetch initial blackboard data across scopes
                             try:
-                                bb_targets = [tree_id.encode("utf-8"), b"@root", b""]
+                                raw_targets = [
+                                    tree_id,
+                                    "ROOT",
+                                    "@root",
+                                    "",
+                                ]
+                                if tree_model.get("subtree_targets"):
+                                    for st_t in tree_model["subtree_targets"]:
+                                        if st_t and st_t not in raw_targets:
+                                            raw_targets.append(st_t)
+
                                 combined_flat_bb = {}
-                                for target in bb_targets:
+                                for target_str in raw_targets:
+                                    target = (
+                                        target_str.encode("utf-8")
+                                        if isinstance(target_str, str)
+                                        else target_str
+                                    )
                                     bb_header = serialize_groot2_header(
                                         Groot2RequestType.BLACKBOARD
                                     )
@@ -454,6 +469,130 @@ class Groot2ZMQBridge:
                                     ):
                                         pass
 
+                                    # When a node completes execution (SUCCESS or FAILURE),
+                                    # immediately fetch the updated blackboard so any outputs
+                                    # produced by this specific node are captured with its transition.
+                                    transition_bb = None
+                                    if status_str in ("SUCCESS", "FAILURE"):
+                                        try:
+                                            raw_targets = [
+                                                curr_tree_id,
+                                                "ROOT",
+                                                "@root",
+                                                "",
+                                            ]
+                                            if (
+                                                self.cached_tree
+                                                and self.cached_tree.get(
+                                                    "subtree_targets"
+                                                )
+                                            ):
+                                                for st_t in self.cached_tree[
+                                                    "subtree_targets"
+                                                ]:
+                                                    if st_t and st_t not in raw_targets:
+                                                        raw_targets.append(st_t)
+                                            # Query subtree target of current node if known
+                                            node_model_entry = node_lookup.get(uid)
+                                            if (
+                                                node_model_entry
+                                                and node_model_entry.get("subtree_path")
+                                            ):
+                                                st_p = node_model_entry["subtree_path"]
+                                                if st_p and st_p not in raw_targets:
+                                                    raw_targets.append(st_p)
+
+                                            combined_t_bb = {}
+                                            for target_str in raw_targets:
+                                                target = (
+                                                    target_str.encode("utf-8")
+                                                    if isinstance(target_str, str)
+                                                    else target_str
+                                                )
+                                                req_header = serialize_groot2_header(
+                                                    Groot2RequestType.BLACKBOARD
+                                                )
+                                                sock.send_multipart(
+                                                    [req_header, target]
+                                                )
+                                                reply_frames = sock.recv_multipart()
+                                                if (
+                                                    len(reply_frames) > 1
+                                                    and reply_frames[1]
+                                                ):
+                                                    raw_bb = decode_groot2_blackboard(
+                                                        reply_frames[1]
+                                                    )
+                                                    if raw_bb:
+                                                        combined_t_bb.update(
+                                                            flatten_blackboard_dict(
+                                                                raw_bb
+                                                            )
+                                                        )
+                                            if combined_t_bb:
+                                                transition_bb = combined_t_bb
+                                                if self.cached_tree:
+                                                    self.cached_tree["blackboard"] = {
+                                                        **(
+                                                            self.cached_tree.get(
+                                                                "blackboard"
+                                                            )
+                                                            or {}
+                                                        ),
+                                                        **combined_t_bb,
+                                                    }
+                                        except Exception:
+                                            pass
+
+                                    # Emulate BTick protocol output_ports packaging:
+                                    # Attach exact evaluated ports to the transition event so that each node
+                                    # receives its own isolated port values according to its execution scope!
+                                    event_output_ports = []
+                                    node_meta = node_lookup.get(uid)
+                                    if node_meta:
+                                        node_scope = (
+                                            node_meta.get("subtree_path")
+                                            or curr_tree_id
+                                        )
+                                        active_bb = (
+                                            transition_bb
+                                            or (
+                                                self.cached_tree.get("blackboard")
+                                                if self.cached_tree
+                                                else {}
+                                            )
+                                            or {}
+                                        )
+                                        for pd in node_meta.get("port_details") or []:
+                                            pname = pd.get("name")
+                                            val = pd.get("value", "")
+                                            if (
+                                                isinstance(val, str)
+                                                and val.startswith("{")
+                                                and val.endswith("}")
+                                            ):
+                                                raw_k = val[1:-1].strip()
+                                                scoped_k = f"{node_scope}/{raw_k}"
+                                                resolved = active_bb.get(
+                                                    scoped_k, active_bb.get(raw_k)
+                                                )
+                                                if resolved is not None:
+                                                    event_output_ports.append(
+                                                        {
+                                                            "port_name": pname,
+                                                            "blackboard_key": raw_k,
+                                                            "value": str(resolved),
+                                                        }
+                                                    )
+                                            elif val:
+                                                event_output_ports.append(
+                                                    {
+                                                        "port_name": pname,
+                                                        "blackboard_key": "",
+                                                        "value": str(val),
+                                                    }
+                                                )
+
                                     event = {
                                         "type": "transition",
                                         "source": "groot2",
@@ -471,6 +610,8 @@ class Groot2ZMQBridge:
                                         "current_status": current_st,
                                         "duration": node_duration_ms.get(uid, 0.0),
                                         "tick_count": 1,
+                                        "output_ports": event_output_ports,
+                                        "blackboard": transition_bb,
                                         "timestamp": time.time(),
                                     }
                                     if self.on_event_callback:
@@ -485,9 +626,26 @@ class Groot2ZMQBridge:
                     if now_time - last_bb_poll > 0.5:
                         last_bb_poll = now_time
                         try:
-                            bb_targets = [curr_tree_id.encode("utf-8"), b"@root", b""]
+                            raw_targets = [
+                                curr_tree_id,
+                                "ROOT",
+                                "@root",
+                                "",
+                            ]
+                            if self.cached_tree and self.cached_tree.get(
+                                "subtree_targets"
+                            ):
+                                for st_t in self.cached_tree["subtree_targets"]:
+                                    if st_t and st_t not in raw_targets:
+                                        raw_targets.append(st_t)
+
                             combined_flat_bb = {}
-                            for target in bb_targets:
+                            for target_str in raw_targets:
+                                target = (
+                                    target_str.encode("utf-8")
+                                    if isinstance(target_str, str)
+                                    else target_str
+                                )
                                 req_header = serialize_groot2_header(
                                     Groot2RequestType.BLACKBOARD
                                 )

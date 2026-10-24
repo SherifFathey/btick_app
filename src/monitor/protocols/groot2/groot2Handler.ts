@@ -552,7 +552,15 @@ export class Groot2Handler implements IProtocolHandler {
             });
           }
 
-          const nextOutputPortsValues = { ...(n.output_ports_values || {}) };
+          const isStartingOrRunning =
+            event.status === "RUNNING" &&
+            (n.status === "IDLE" ||
+              n.status === "SUCCESS" ||
+              n.status === "FAILURE");
+
+          const nextOutputPortsValues = isStartingOrRunning
+            ? {}
+            : { ...(n.output_ports_values || {}) };
           if (Array.isArray(event.output_ports)) {
             for (const op of event.output_ports) {
               if (op.port_name && op.value !== undefined) {
@@ -561,18 +569,18 @@ export class Groot2Handler implements IProtocolHandler {
             }
           } else if (
             !event.output_ports &&
-            (event.status === "SUCCESS" || event.status === "FAILURE") &&
-            event.blackboard &&
-            typeof event.blackboard === "object"
+            (event.status === "SUCCESS" || event.status === "FAILURE")
           ) {
+            const bbSource =
+              event.blackboard && typeof event.blackboard === "object"
+                ? event.blackboard
+                : targetTree.blackboard || {};
             for (const pd of n.port_details || []) {
               const val = pd.value || "";
               if (val.startsWith("{") && val.endsWith("}")) {
                 const rawK = val.slice(1, -1);
-                if (rawK in event.blackboard) {
-                  nextOutputPortsValues[pd.name] = String(
-                    event.blackboard[rawK],
-                  );
+                if (rawK in bbSource) {
+                  nextOutputPortsValues[pd.name] = String(bbSource[rawK]);
                 }
               }
             }

@@ -328,6 +328,7 @@ export const generateGraphElements = (
   measuredNodeHeights: Map<string, number> = new Map(),
   onNodeResize?: (nodeId: string, height: number) => void,
   preserveCollapsedLayout: boolean = false,
+  onResetLayout?: () => void,
 ) => {
   if (!tree || !tree.nodes || tree.nodes.length === 0) {
     return { initialNodes: [], initialEdges: [] };
@@ -610,6 +611,7 @@ export const generateGraphElements = (
           blackboard: tree.blackboard || {},
           activeProtocol,
           onNodeResize,
+          onResetLayout,
         },
         hidden: hiddenNodes.has(node.id),
         position: {

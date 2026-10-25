@@ -393,6 +393,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   >(new Map());
   const pendingHeightsRef = useRef<Map<string, number>>(new Map());
   const batchTimeoutRef = useRef<any>(null);
+  const handleResetLayoutRef = useRef<() => void>(() => {});
 
   const handleNodeResize = useCallback(
     (nodeId: string, height: number) => {
@@ -430,7 +431,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 
   useEffect(() => {
     setMeasuredNodeHeights(new Map());
-  }, [tree?.tree_id, activeOrientation, activeProtocol, layoutRevision]);
+  }, [tree?.tree_id, activeOrientation, activeProtocol]);
 
   // Global Keyboard Shortcuts (F5 = Continue/Resume, F9 = Toggle Breakpoint) [Disabled]
   /*
@@ -484,6 +485,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         measuredNodeHeights,
         handleNodeResize,
         true,
+        () => handleResetLayoutRef.current(),
       ),
     [
       tree,
@@ -527,6 +529,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           isCollapsed: expandedNodes.has(`collapsed_${node.id}`),
           onSetNodePort,
           isReadOnly: isReadOnlyDebug,
+          onResetLayout: () => handleResetLayoutRef.current(),
         },
       })),
       initialEdges: withPathMode(graph.initialEdges).map((edge) => ({
@@ -628,6 +631,15 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   const handleResetLayout = useCallback(() => {
     userPositionsRef.current.clear();
     onNodePositionsChange?.({});
+
+    // Flush any pending height measurements
+    const activeHeights = new Map(measuredNodeHeights);
+    if (pendingHeightsRef.current.size > 0) {
+      pendingHeightsRef.current.forEach((h, id) => activeHeights.set(id, h));
+      setMeasuredNodeHeights(new Map(activeHeights));
+      pendingHeightsRef.current.clear();
+    }
+
     setLayoutRevision((r) => r + 1);
 
     const { initialNodes: newNodes, initialEdges: generatedEdges } =
@@ -639,6 +651,10 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         isLocked,
         handleNodeContextMenu,
         activeProtocol,
+        activeHeights,
+        handleNodeResize,
+        true,
+        () => handleResetLayoutRef.current(),
       );
 
     const nodesWithCallbacks: Node[] = newNodes.map((node: Node) => ({
@@ -652,6 +668,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         onNodeContextMenu: handleNodeContextMenu,
         onSetNodePort,
         isReadOnly: isReadOnlyDebug,
+        onResetLayout: handleResetLayout,
       },
     }));
 
@@ -683,7 +700,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     onNodePositionsChange,
     withPathMode,
     onSetNodePort,
+    measuredNodeHeights,
+    handleNodeResize,
   ]);
+
+  handleResetLayoutRef.current = handleResetLayout;
 
   const handleOrientationSwitch = useCallback(
     (nextOrientation: TreeOrientation) => {
@@ -804,6 +825,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           onNodeContextMenu: handleNodeContextMenu,
           onSetNodePort,
           isReadOnly: isReadOnlyDebug,
+          onResetLayout: () => handleResetLayoutRef.current(),
         },
       };
     });

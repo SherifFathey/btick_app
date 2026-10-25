@@ -14,6 +14,7 @@ import {
   Clock,
   MinusCircle,
   ChevronDown,
+  ChevronUp,
   Plus,
   Cpu,
   GitBranch,
@@ -44,6 +45,7 @@ interface BTNodeComponentProps {
     isCollapsed: boolean;
     onToggleCollapse?: (nodeId: string) => void;
     onNodeResize?: (nodeId: string, height: number) => void;
+    onResetLayout?: () => void;
     onSetNodePort?: (
       treeId: string,
       uid: number,
@@ -270,6 +272,7 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       activeProtocol,
       onSetNodePort,
       isReadOnly = false,
+      onResetLayout,
     } = data as any;
 
     const isNav2 = activeProtocol === "nav2";
@@ -319,7 +322,7 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
 
     const allowInternalScroll = isBigEnough && hasOverflow;
 
-    const { getViewport, setViewport } = useReactFlow();
+    const { getViewport, setViewport, getNodes } = useReactFlow();
     const editorContainerRef = useRef<HTMLDivElement>(null);
     const [editingPortName, setEditingPortName] = useState<string | null>(null);
     const [portDrafts, setPortDrafts] = useState<Record<string, string>>({});
@@ -613,6 +616,125 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       observer.observe(element);
       return () => observer.disconnect();
     }, []);
+
+    const [isCardExpanded, setIsCardExpanded] = useState(false);
+
+    const allItems = useMemo(() => {
+      const items: Array<{
+        type: "attribute" | "port";
+        key: string;
+        value: unknown;
+        labelClass: string;
+      }> = [];
+      if (nodeData.attributes) {
+        Object.entries(nodeData.attributes).forEach(([k, v]) => {
+          items.push({
+            type: "attribute",
+            key: k,
+            value: v,
+            labelClass: "text-amber-700 dark:text-amber-400",
+          });
+        });
+      }
+      if (nodeData.ports) {
+        Object.entries(nodeData.ports).forEach(([k, v]) => {
+          items.push({
+            type: "port",
+            key: k,
+            value: v,
+            labelClass: "text-[#24456E] dark:text-sky-300",
+          });
+        });
+      }
+      return items;
+    }, [nodeData.attributes, nodeData.ports]);
+
+    const totalItemsCount = allItems.length;
+    const hasManyItems = totalItemsCount > 2;
+    const isExpandedEffective = isCardExpanded || Boolean(editingPortName);
+    const visibleItems =
+      isExpandedEffective || !hasManyItems ? allItems : allItems.slice(0, 2);
+
+    const checkOverlapAndResetLayout = useCallback(() => {
+      if (!nodeRef.current) return;
+      const myRect = nodeRef.current.getBoundingClientRect();
+      let hasOverlapBelow = false;
+
+      // 1. Check DOM bounding rects of all other node elements
+      const allNodes = document.querySelectorAll(".react-flow__node");
+      allNodes.forEach((nodeEl) => {
+        if (nodeEl.contains(nodeRef.current) || nodeEl === nodeRef.current)
+          return;
+        const otherRect = nodeEl.getBoundingClientRect();
+
+        // Check if other node is underneath / below this node (vertically)
+        const isBelow = otherRect.top >= myRect.top - 5;
+        // Check horizontal overlap (they occupy the same column / X range)
+        const overlapsHorizontally =
+          myRect.left < otherRect.right - 8 &&
+          myRect.right > otherRect.left + 8;
+        // Check if this node's bottom overlaps or covers the other node's top
+        const overlapsVertically =
+          myRect.bottom > otherRect.top + 5 && myRect.top < otherRect.bottom;
+
+        if (isBelow && overlapsHorizontally && overlapsVertically) {
+          hasOverlapBelow = true;
+        }
+      });
+
+      // 2. Also check canvas coordinates via useReactFlow getNodes if available
+      if (!hasOverlapBelow && getNodes) {
+        try {
+          const rfNodes = getNodes();
+          const currentNode = rfNodes.find((n) => n.id === nodeData.id);
+          if (currentNode && nodeRef.current) {
+            const curHeight = nodeRef.current.offsetHeight;
+            const curWidth = 240;
+            const curX = currentNode.position.x;
+            const curY = currentNode.position.y;
+
+            for (const other of rfNodes) {
+              if (other.id === nodeData.id || other.hidden) continue;
+              const otherX = other.position.x;
+              const otherY = other.position.y;
+              const otherWidth = other.measured?.width || other.width || 240;
+              const otherHeight = other.measured?.height || other.height || 100;
+
+              const isBelow = otherY >= curY - 5;
+              const overlapsX =
+                curX < otherX + otherWidth - 10 &&
+                curX + curWidth > otherX + 10;
+              const overlapsY =
+                curY + curHeight > otherY + 5 && curY < otherY + otherHeight;
+
+              if (isBelow && overlapsX && overlapsY) {
+                hasOverlapBelow = true;
+                break;
+              }
+            }
+          }
+        } catch {
+          // Fallback ignore
+        }
+      }
+
+      if (hasOverlapBelow) {
+        onResetLayout?.();
+      }
+    }, [getNodes, nodeData.id, onResetLayout]);
+
+    const handleToggleCardExpand = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const nextExpanded = !isCardExpanded;
+      setIsCardExpanded(nextExpanded);
+
+      if (nextExpanded) {
+        // When expanding, check if the expanded card covers a node underneath
+        setTimeout(() => {
+          checkOverlapAndResetLayout();
+        }, 50);
+      }
+    };
 
     const [isHovered, setIsHovered] = useState(false);
     const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -1165,45 +1287,58 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
               </div>
             )}
 
-            {/* Attributes & Ports (Compact scrollable list) */}
-            {((nodeData.attributes &&
-              Object.keys(nodeData.attributes).length > 0) ||
-              (nodeData.ports && Object.keys(nodeData.ports).length > 0)) && (
-              <div
-                ref={portsListRef}
-                onMouseEnter={handlePortsMouseEnter}
-                className={`nodrag mt-2 flex flex-col gap-1.5 font-mono text-[10px] select-none pr-1 ${
-                  editingPortName
-                    ? "overflow-visible"
-                    : `max-h-24 bt-node-scrollbar ${
-                        allowInternalScroll
-                          ? "nowheel overflow-y-auto overscroll-contain"
-                          : "overflow-y-hidden"
-                      }`
-                }`}
-                onWheel={(e) => {
-                  if (allowInternalScroll) {
-                    e.stopPropagation();
-                  }
-                }}
-              >
-                {nodeData.attributes &&
-                  Object.entries(nodeData.attributes).map(([k, v]) => {
-                    return renderCardPortRow(
-                      k,
-                      v,
-                      "text-amber-700 dark:text-amber-400",
-                    );
-                  })}
+            {/* Attributes & Ports */}
+            {totalItemsCount > 0 && (
+              <div className="mt-2 flex flex-col gap-1 font-mono text-[10px] select-none">
+                <div
+                  ref={portsListRef}
+                  onMouseEnter={handlePortsMouseEnter}
+                  className={`nodrag flex flex-col gap-1.5 select-none pr-1 ${
+                    isExpandedEffective
+                      ? "overflow-visible"
+                      : `max-h-24 bt-node-scrollbar ${
+                          allowInternalScroll
+                            ? "nowheel overflow-y-auto overscroll-contain"
+                            : "overflow-y-hidden"
+                        }`
+                  }`}
+                  onWheel={(e) => {
+                    if (allowInternalScroll) {
+                      e.stopPropagation();
+                    }
+                  }}
+                >
+                  {visibleItems.map((item) =>
+                    renderCardPortRow(item.key, item.value, item.labelClass),
+                  )}
+                </div>
 
-                {nodeData.ports &&
-                  Object.entries(nodeData.ports).map(([k, v]) => {
-                    return renderCardPortRow(
-                      k,
-                      v,
-                      "text-[#24456E] dark:text-sky-300",
-                    );
-                  })}
+                {/* Expand / Collapse Button for nodes with many items */}
+                {hasManyItems && (
+                  <button
+                    type="button"
+                    onClick={handleToggleCardExpand}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="nodrag nopan w-full mt-0.5 py-0.5 px-2 flex items-center justify-center gap-1.5 text-[10px] font-semibold text-accent-primary hover:text-accent-hover bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 rounded-md border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 select-none shadow-2xs"
+                    title={
+                      isCardExpanded
+                        ? "Collapse card to compact view"
+                        : `Expand to show all ${totalItemsCount} items`
+                    }
+                  >
+                    {isCardExpanded ? (
+                      <>
+                        <ChevronUp className="w-3 h-3 stroke-[2.5]" />
+                        <span>Collapse</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3 h-3 stroke-[2.5]" />
+                        <span>Expand (+{totalItemsCount - 2})</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
 

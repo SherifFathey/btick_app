@@ -1,8 +1,4 @@
-<div align="center">
-
 # BTick
-
-</div>
 
 > [!TIP]
 > 📚 **Complete Documentation Available**: Detailed installation guides, bridge protocol specifications, multi-machine networking, and API reference can be found in our official docs: **[sheriffathey.github.io/btick_docs](https://sheriffathey.github.io/btick_docs/)**.

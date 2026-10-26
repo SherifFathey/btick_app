@@ -46,6 +46,8 @@ interface BTNodeComponentProps {
     onToggleCollapse?: (nodeId: string) => void;
     onNodeResize?: (nodeId: string, height: number) => void;
     onResetLayout?: () => void;
+    isCardExpanded?: boolean;
+    onToggleCardExpand?: (nodeId: string) => void;
     onSetNodePort?: (
       treeId: string,
       uid: number,
@@ -273,6 +275,8 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       onSetNodePort,
       isReadOnly = false,
       onResetLayout,
+      isCardExpanded: propIsCardExpanded,
+      onToggleCardExpand,
     } = data as any;
 
     const isNav2 = activeProtocol === "nav2";
@@ -322,7 +326,7 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
 
     const allowInternalScroll = isBigEnough && hasOverflow;
 
-    const { getViewport, setViewport, getNodes } = useReactFlow();
+    const { getViewport, setViewport } = useReactFlow();
     const editorContainerRef = useRef<HTMLDivElement>(null);
     const [editingPortName, setEditingPortName] = useState<string | null>(null);
     const [portDrafts, setPortDrafts] = useState<Record<string, string>>({});
@@ -617,7 +621,9 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       return () => observer.disconnect();
     }, []);
 
-    const [isCardExpanded, setIsCardExpanded] = useState(false);
+    const [localCardExpanded, setLocalCardExpanded] = useState(false);
+    const isCardExpanded =
+      propIsCardExpanded !== undefined ? propIsCardExpanded : localCardExpanded;
 
     const allItems = useMemo(() => {
       const items: Array<{
@@ -655,84 +661,12 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
     const visibleItems =
       isExpandedEffective || !hasManyItems ? allItems : allItems.slice(0, 2);
 
-    const checkOverlapAndResetLayout = useCallback(() => {
-      if (!nodeRef.current) return;
-      const myRect = nodeRef.current.getBoundingClientRect();
-      let hasOverlapBelow = false;
-
-      // 1. Check DOM bounding rects of all other node elements
-      const allNodes = document.querySelectorAll(".react-flow__node");
-      allNodes.forEach((nodeEl) => {
-        if (nodeEl.contains(nodeRef.current) || nodeEl === nodeRef.current)
-          return;
-        const otherRect = nodeEl.getBoundingClientRect();
-
-        // Check if other node is underneath / below this node (vertically)
-        const isBelow = otherRect.top >= myRect.top - 5;
-        // Check horizontal overlap (they occupy the same column / X range)
-        const overlapsHorizontally =
-          myRect.left < otherRect.right - 8 &&
-          myRect.right > otherRect.left + 8;
-        // Check if this node's bottom overlaps or covers the other node's top
-        const overlapsVertically =
-          myRect.bottom > otherRect.top + 5 && myRect.top < otherRect.bottom;
-
-        if (isBelow && overlapsHorizontally && overlapsVertically) {
-          hasOverlapBelow = true;
-        }
-      });
-
-      // 2. Also check canvas coordinates via useReactFlow getNodes if available
-      if (!hasOverlapBelow && getNodes) {
-        try {
-          const rfNodes = getNodes();
-          const currentNode = rfNodes.find((n) => n.id === nodeData.id);
-          if (currentNode && nodeRef.current) {
-            const curHeight = nodeRef.current.offsetHeight;
-            const curWidth = 240;
-            const curX = currentNode.position.x;
-            const curY = currentNode.position.y;
-
-            for (const other of rfNodes) {
-              if (other.id === nodeData.id || other.hidden) continue;
-              const otherX = other.position.x;
-              const otherY = other.position.y;
-              const otherWidth = other.measured?.width || other.width || 240;
-              const otherHeight = other.measured?.height || other.height || 100;
-
-              const isBelow = otherY >= curY - 5;
-              const overlapsX =
-                curX < otherX + otherWidth - 10 &&
-                curX + curWidth > otherX + 10;
-              const overlapsY =
-                curY + curHeight > otherY + 5 && curY < otherY + otherHeight;
-
-              if (isBelow && overlapsX && overlapsY) {
-                hasOverlapBelow = true;
-                break;
-              }
-            }
-          }
-        } catch {
-          // Fallback ignore
-        }
-      }
-
-      if (hasOverlapBelow) {
-        onResetLayout?.();
-      }
-    }, [getNodes, nodeData.id, onResetLayout]);
-
     const handleToggleCardExpand = (e: React.MouseEvent) => {
       e.stopPropagation();
-      const nextExpanded = !isCardExpanded;
-      setIsCardExpanded(nextExpanded);
-
-      if (nextExpanded) {
-        // When expanding, check if the expanded card covers a node underneath
-        setTimeout(() => {
-          checkOverlapAndResetLayout();
-        }, 50);
+      if (onToggleCardExpand) {
+        onToggleCardExpand(nodeData.id);
+      } else {
+        setLocalCardExpanded((prev) => !prev);
       }
     };
 

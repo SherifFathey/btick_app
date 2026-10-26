@@ -395,6 +395,28 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   const batchTimeoutRef = useRef<any>(null);
   const handleResetLayoutRef = useRef<() => void>(() => {});
 
+  const [expandedCardNodeIds, setExpandedCardNodeIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const handleToggleCardExpand = useCallback((nodeId: string) => {
+    setExpandedCardNodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+    setMeasuredNodeHeights((prev) => {
+      if (!prev.has(nodeId)) return prev;
+      const next = new Map(prev);
+      next.delete(nodeId);
+      return next;
+    });
+  }, []);
+
   const handleNodeResize = useCallback(
     (nodeId: string, height: number) => {
       updateNodeInternals(nodeId);
@@ -431,7 +453,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 
   useEffect(() => {
     setMeasuredNodeHeights(new Map());
-  }, [tree?.tree_id, activeOrientation, activeProtocol]);
+  }, [tree?.tree_id, activeProtocol]);
 
   // Global Keyboard Shortcuts (F5 = Continue/Resume, F9 = Toggle Breakpoint) [Disabled]
   /*
@@ -486,6 +508,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         handleNodeResize,
         true,
         () => handleResetLayoutRef.current(),
+        expandedCardNodeIds,
+        handleToggleCardExpand,
       ),
     [
       tree,
@@ -498,6 +522,9 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       measuredNodeHeights,
       handleNodeResize,
       pathMode,
+      layoutRevision,
+      expandedCardNodeIds,
+      handleToggleCardExpand,
     ],
   );
 
@@ -527,9 +554,11 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         data: {
           ...node.data,
           isCollapsed: expandedNodes.has(`collapsed_${node.id}`),
+          isCardExpanded: expandedCardNodeIds.has(node.id),
           onSetNodePort,
           isReadOnly: isReadOnlyDebug,
           onResetLayout: () => handleResetLayoutRef.current(),
+          onToggleCardExpand: handleToggleCardExpand,
         },
       })),
       initialEdges: withPathMode(graph.initialEdges).map((edge) => ({
@@ -541,6 +570,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     tree,
     stableGraph,
     expandedNodes,
+    expandedCardNodeIds,
+    handleToggleCardExpand,
     activeOrientation,
     isNav2,
     onSetNodePort,
@@ -655,6 +686,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         handleNodeResize,
         true,
         () => handleResetLayoutRef.current(),
+        expandedCardNodeIds,
+        handleToggleCardExpand,
       );
 
     const nodesWithCallbacks: Node[] = newNodes.map((node: Node) => ({
@@ -669,6 +702,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         onSetNodePort,
         isReadOnly: isReadOnlyDebug,
         onResetLayout: handleResetLayout,
+        isCardExpanded: expandedCardNodeIds.has(node.id),
+        onToggleCardExpand: handleToggleCardExpand,
       },
     }));
 
@@ -702,6 +737,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     onSetNodePort,
     measuredNodeHeights,
     handleNodeResize,
+    expandedCardNodeIds,
+    handleToggleCardExpand,
   ]);
 
   handleResetLayoutRef.current = handleResetLayout;
@@ -826,6 +863,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           onSetNodePort,
           isReadOnly: isReadOnlyDebug,
           onResetLayout: () => handleResetLayoutRef.current(),
+          isCardExpanded: expandedCardNodeIds.has(node.id),
+          onToggleCardExpand: handleToggleCardExpand,
         },
       };
     });
@@ -871,6 +910,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     withPathMode,
     onSetNodePort,
     handleToggleCollapse,
+    expandedCardNodeIds,
+    handleToggleCardExpand,
   ]);
 
   const nodeGeometryKey = useMemo(

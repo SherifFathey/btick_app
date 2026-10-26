@@ -90,16 +90,25 @@ export const computeExecutionAwareFailurePath = (
 
 export const NODE_WIDTH = 240;
 
-export const calculateNodeHeight = (node: BTNodeModel): number => {
+export const calculateNodeHeight = (
+  node: BTNodeModel,
+  isCardExpanded: boolean = false,
+): number => {
   const attrCount =
     (node.attributes ? Object.keys(node.attributes).length : 0) +
     (node.ports ? Object.keys(node.ports).length : 0);
   let height = 75;
   if (attrCount > 0) {
-    height += Math.min(attrCount * 18, 55);
+    if (isCardExpanded) {
+      height += attrCount * 28 + 38;
+    } else if (attrCount > 2) {
+      height += 2 * 28 + 38;
+    } else {
+      height += attrCount * 28 + 12;
+    }
   }
   if (node.last_duration !== undefined && node.last_duration > 0) {
-    height += 20;
+    height += 24;
   }
   return height;
 };
@@ -329,6 +338,8 @@ export const generateGraphElements = (
   onNodeResize?: (nodeId: string, height: number) => void,
   preserveCollapsedLayout: boolean = false,
   onResetLayout?: () => void,
+  expandedCardNodeIds?: Set<string>,
+  onToggleCardExpand?: (nodeId: string) => void,
 ) => {
   if (!tree || !tree.nodes || tree.nodes.length === 0) {
     return { initialNodes: [], initialEdges: [] };
@@ -410,8 +421,21 @@ export const generateGraphElements = (
   ): LayoutNode => {
     visited.add(id);
     const node = nodeMap.get(id);
-    const height =
-      measuredNodeHeights.get(id) || (node ? calculateNodeHeight(node) : 80);
+    const isCardExpanded = expandedCardNodeIds?.has(id) ?? false;
+    const measured = measuredNodeHeights.get(id);
+    const calculated = node ? calculateNodeHeight(node, isCardExpanded) : 80;
+    let height = calculated;
+    if (measured !== undefined) {
+      if (isCardExpanded) {
+        if (measured >= calculated - 40) {
+          height = measured;
+        }
+      } else {
+        if (measured <= calculated + 40) {
+          height = measured;
+        }
+      }
+    }
     const width = NODE_WIDTH;
     const vChildren = childrenMap.get(id) || [];
     const childrenNodes = vChildren
@@ -605,6 +629,7 @@ export const generateGraphElements = (
           orientation,
           hasChildren: node.children_ids && node.children_ids.length > 0,
           isCollapsed: expandedNodes.has(`collapsed_${node.id}`),
+          isCardExpanded: expandedCardNodeIds?.has(node.id) ?? false,
           onToggleBreakpoint,
           isLocked,
           onNodeContextMenu,
@@ -612,6 +637,7 @@ export const generateGraphElements = (
           activeProtocol,
           onNodeResize,
           onResetLayout,
+          onToggleCardExpand,
         },
         hidden: hiddenNodes.has(node.id),
         position: {

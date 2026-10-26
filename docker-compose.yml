@@ -1,23 +1,8 @@
-# ==============================================================================
-# BTick Behavior Tree & ROS 2 Monitor Docker Compose
-# ==============================================================================
-# Run on the robot / server:
-#   docker compose up -d
-#
-# Open in browser on any machine on the network:
-#   http://<robot-ip>:${HTTP_PORT:-3000}
-#
-# Firewall requirements on robot / server:
-#   Allow inbound TCP on HTTP_PORT (default 3000), WS_PORT (default 8080), ZMQ_PORT (default 1667)
-#   Example (ufw):
-#     sudo ufw allow 3000/tcp
-#     sudo ufw allow 8080/tcp
-#     sudo ufw allow 1667/tcp
-# ==============================================================================
 
 services:
   btick:
-    image: sheriffathey/btick:v0.0.36
+    image: sheriffathey/btick:latest
+    container_name: btick_app
     network_mode: host
     restart: unless-stopped
     environment:
@@ -39,26 +24,3 @@ services:
     volumes:
       - /tmp:/tmp:ro
       - ${XDG_RUNTIME_DIR:-/run/user}:${XDG_RUNTIME_DIR:-/run/user}:ro
-
-
-
-  # ----------------------------------------------------------------------------
-  # Option B: Bridge Networking Mode (Alternative when host mode is unavailable)
-  # NOTE: ROS 2 DDS multicast peer discovery across machines may NOT work in bridge
-  # mode without dedicated DDS router/unicast configuration.
-  # ----------------------------------------------------------------------------
-  # btick-bridge-mode:
-  #   image: ghcr.io/sheriffathey/btick:latest
-  #   container_name: btick_app_bridge
-  #   restart: unless-stopped
-  #   ports:
-  #     - "${HTTP_PORT:-3000}:${HTTP_PORT:-3000}"
-  #     - "${WS_PORT:-8080}:${WS_PORT:-8080}"
-  #     - "${ZMQ_PORT:-1667}:${ZMQ_PORT:-1667}"
-  #   environment:
-  #     - HTTP_PORT=${HTTP_PORT:-3000}
-  #     - WS_PORT=${WS_PORT:-8080}
-  #     - ZMQ_PORT=${ZMQ_PORT:-1667}
-  #     - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
-  #     - PYTHONUNBUFFERED=1
-  #     - OPEN_BROWSER=${OPEN_BROWSER:-false}

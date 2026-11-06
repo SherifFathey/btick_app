@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   X,
   Layers,
@@ -20,7 +20,10 @@ import {
   Lock,
   RefreshCw,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import { useResponsiveLayout } from "../../shared/hooks/useResponsiveLayout";
 import { BTNodeModel, BTTreeModel, BTPortDetail } from "../types/bt";
 import { resolveNodePorts } from "../utils/ports";
 import { BTickDebugPanel } from "../protocols/btick";
@@ -75,6 +78,43 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
   onForceFailure,
   onSetNodePort,
 }) => {
+  const { isMobile, isTablet } = useResponsiveLayout();
+  const [sheetHeight, setSheetHeight] = useState<number>(35);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragStartYRef = React.useRef<number>(0);
+  const dragStartHeightRef = React.useRef<number>(35);
+
+  const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    dragStartYRef.current = clientY;
+    dragStartHeightRef.current = sheetHeight;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDragging) return;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    const deltaY = clientY - dragStartYRef.current;
+    const deltaPercent = (deltaY / window.innerHeight) * 100;
+    const nextH = Math.max(
+      15,
+      Math.min(80, dragStartHeightRef.current - deltaPercent),
+    );
+    setSheetHeight(nextH);
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (sheetHeight < 22) {
+      onClose();
+    } else if (sheetHeight < 55) {
+      setSheetHeight(35);
+    } else {
+      setSheetHeight(75);
+    }
+  };
+
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Live Node Port Editing state
@@ -84,6 +124,16 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
   const [portFeedback, setPortFeedback] = useState<{
     [portName: string]: { type: "success" | "error"; message: string };
   }>({});
+  const activeEditorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editingPortName && activeEditorRef.current) {
+      activeEditorRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [editingPortName]);
 
   const isNav2 = activeProtocol === "nav2";
   const isDelayActive = !isNav2 && !!node?.delay_active;
@@ -170,6 +220,10 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
       delete next[port.name];
       return next;
     });
+    // Auto center the node being edited in the graph canvas
+    if (node?.id) {
+      onSelectNode(node.id);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -419,7 +473,10 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
 
         {/* Compact Inline Editor */}
         {isEditing && (
-          <div className="p-2.5 mx-1 my-1.5 bg-surface-primary rounded-xl border border-accent-primary/40 space-y-2 text-xs font-mono shadow-xs">
+          <div
+            ref={activeEditorRef}
+            className="p-2.5 mx-1 my-1.5 bg-surface-primary rounded-xl border border-accent-primary/40 space-y-2 text-xs font-mono shadow-xs"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Pencil className="w-3 h-3 text-accent-primary" />
@@ -509,26 +566,78 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
     );
   };
 
+  const WrapperTag = isMobile ? "div" : "aside";
+
   return (
-    <aside className="w-96 h-full bg-surface-primary border-l border-border-subtle flex flex-col z-20 shadow-xl select-text font-sans text-xs overflow-hidden shrink-0">
+    <WrapperTag
+      className={
+        isMobile
+          ? `fixed inset-x-0 bottom-0 z-30 bg-surface-primary border-t border-border-medium rounded-t-2xl shadow-2xl flex flex-col font-sans text-xs overflow-hidden pointer-events-auto touch-pan-y ${
+              isDragging
+                ? "transition-none select-none"
+                : "transition-[height] duration-200"
+            }`
+          : `${
+              isTablet ? "w-80 max-w-[340px]" : "w-80 lg:w-96"
+            } h-full bg-surface-primary border-l border-border-subtle flex flex-col z-20 shadow-xl select-text font-sans text-xs overflow-hidden shrink-0`
+      }
+      style={isMobile ? { height: `${sheetHeight}vh` } : undefined}
+    >
+      {/* Mobile Drag Handle Bar */}
+      {isMobile && (
+        <div
+          className="w-full flex items-center justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing shrink-0 touch-none select-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleTouchStart}
+          onClick={() => setSheetHeight((prev) => (prev > 50 ? 35 : 75))}
+          title="Drag to resize between 35% and 75% or tap to toggle"
+        >
+          <div className="w-12 h-1.5 rounded-full bg-border-strong/70 hover:bg-accent-primary transition-colors" />
+        </div>
+      )}
+
       {/* Drawer Header */}
-      <div className="h-[44px] px-3.5 border-b border-border-subtle bg-surface-primary flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-accent-primary" />
-          <h2 className="font-bold text-xs text-text-primary uppercase tracking-wide font-mono">
-            Node Information
+      <div
+        className={`${
+          isMobile ? "h-[38px]" : "h-[44px]"
+        } px-3.5 border-b border-border-subtle bg-surface-primary flex items-center justify-between shrink-0`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Info className="w-4 h-4 text-accent-primary shrink-0" />
+          <h2 className="font-bold text-xs text-text-primary uppercase tracking-wide font-mono truncate max-w-[200px]">
+            {isMobile ? node.name : "Node Information"}
           </h2>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted hover:text-text-primary transition-all cursor-pointer shadow-2xs active:scale-95"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => setSheetHeight((prev) => (prev > 50 ? 35 : 75))}
+              className="p-1 rounded-lg hover:bg-surface-hover text-text-muted hover:text-text-primary transition-all cursor-pointer"
+              title={sheetHeight > 50 ? "Collapse to 35%" : "Expand to 75%"}
+            >
+              {sheetHeight > 50 ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronUp className="w-4 h-4" />
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted hover:text-text-primary transition-all cursor-pointer shadow-2xs active:scale-95"
+            title="Close Node Details"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Main Content Scrollable Area */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-surface-primary">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-surface-primary touch-pan-y overscroll-contain">
         {/* Node Information */}
         <div className="bg-surface-secondary p-3 rounded-xl border border-border-medium space-y-2.5 shadow-2xs">
           <div className="flex items-center justify-between">
@@ -570,30 +679,30 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
                   <div className="grid grid-cols-3 gap-1.5 pt-0.5">
                     <button
                       onClick={() => onResume?.(tree?.tree_id || "MainTree")}
-                      className="flex flex-col items-center justify-center p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] cursor-pointer transition-all border border-emerald-700 shadow-xs active:scale-95"
+                      className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer transition-all border border-emerald-700 shadow-xs active:scale-95"
                       title="Continue real node execution"
                     >
-                      <PlayCircle className="w-3.5 h-3.5 fill-current mb-0.5" />
+                      <PlayCircle className="w-3.5 h-3.5 fill-current shrink-0" />
                       <span>Continue</span>
                     </button>
                     <button
                       onClick={() =>
                         onForceSuccess?.(tree?.tree_id || "MainTree")
                       }
-                      className="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-primary hover:bg-surface-hover text-text-primary font-semibold text-[10px] border border-border-medium cursor-pointer transition-all shadow-2xs active:scale-95"
+                      className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-primary hover:bg-surface-hover text-text-primary font-semibold text-xs border border-border-medium cursor-pointer transition-all shadow-2xs active:scale-95"
                       title="Force SUCCESS (Fault Injection)"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mb-0.5" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                       <span>Success</span>
                     </button>
                     <button
                       onClick={() =>
                         onForceFailure?.(tree?.tree_id || "MainTree")
                       }
-                      className="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-primary hover:bg-surface-hover text-text-primary font-semibold text-[10px] border border-border-medium cursor-pointer transition-all shadow-2xs active:scale-95"
+                      className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-primary hover:bg-surface-hover text-text-primary font-semibold text-xs border border-border-medium cursor-pointer transition-all shadow-2xs active:scale-95"
                       title="Force FAILURE (Fault Injection)"
                     >
-                      <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 mb-0.5" />
+                      <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
                       <span>Failure</span>
                     </button>
                   </div>
@@ -1029,6 +1138,6 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
           />
         ) : null}
       </div>
-    </aside>
+    </WrapperTag>
   );
 };

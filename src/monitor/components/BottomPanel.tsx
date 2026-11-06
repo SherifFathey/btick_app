@@ -18,6 +18,7 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
+import { useResponsiveLayout } from "../../shared/hooks/useResponsiveLayout";
 import {
   TransitionEvent,
   BTTreeModel,
@@ -241,7 +242,13 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   onClearAllFaults,
 }) => {
   const isNav2 = activeProtocol === "nav2";
-  const [isOpen, setIsOpen] = useState(true);
+  const { isMobile, isTablet } = useResponsiveLayout();
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return false;
+    }
+    return true;
+  });
   const [activeTab, setActiveTab] = useState<
     "events" | "breakpoints" | "faults"
   >("events");
@@ -262,28 +269,38 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         localStorage.getItem("btick_panel_height") ||
         localStorage.getItem("rtick_panel_height") ||
         localStorage.getItem("bt_monitor_panel_height");
+      const maxH =
+        typeof window !== "undefined" && window.innerWidth < 768
+          ? window.innerHeight * 0.45
+          : typeof window !== "undefined"
+            ? window.innerHeight * 0.7
+            : 300;
       return saved
-        ? Math.max(120, Math.min(window.innerHeight * 0.7, parseInt(saved, 10)))
-        : 200;
+        ? Math.max(100, Math.min(maxH, parseInt(saved, 10)))
+        : typeof window !== "undefined" && window.innerWidth < 768
+          ? Math.min(260, Math.floor(window.innerHeight * 0.4))
+          : 180;
     } catch {
-      return 200;
+      return 180;
     }
   });
   const [isResizing, setIsResizing] = useState(false);
 
   const logContainerRef = useRef<HTMLDivElement>(null);
 
-  const startResizing = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
+  const startResizing = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      setIsResizing(true);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!isResizing) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const updateHeight = (clientY: number) => {
       const windowHeight = window.innerHeight;
-      const newHeight = windowHeight - e.clientY;
+      const newHeight = windowHeight - clientY;
       if (newHeight < 45) {
         setIsOpen(false);
       } else {
@@ -294,7 +311,17 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseMove = (e: MouseEvent) => {
+      updateHeight(e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches && e.touches[0]) {
+        updateHeight(e.touches[0].clientY);
+      }
+    };
+
+    const handleEnd = () => {
       setIsResizing(false);
       try {
         if (typeof localStorage !== "undefined") {
@@ -304,10 +331,16 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
     };
 
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseup", handleEnd);
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", handleEnd);
+    window.addEventListener("touchcancel", handleEnd);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseup", handleEnd);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleEnd);
+      window.removeEventListener("touchcancel", handleEnd);
     };
   }, [isResizing, panelHeight]);
 
@@ -467,15 +500,18 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
 
   return (
     <div
-      style={{ height: isOpen ? `${panelHeight}px` : "42px" }}
-      className="relative bg-surface-primary border-t border-border-subtle flex flex-col z-30 transition-[height] duration-75 select-text font-sans shrink-0"
+      style={{
+        height: isOpen ? `${panelHeight}px` : isMobile ? "44px" : "42px",
+      }}
+      className="relative bg-surface-primary border-t-2 border-border-medium flex flex-col z-30 transition-[height] duration-75 select-text font-sans shrink-0 shadow-lg"
     >
       {/* Top Edge Resizer Handle */}
       {isOpen && (
         <div
           onMouseDown={startResizing}
+          onTouchStart={startResizing}
           onDoubleClick={() => setPanelHeight(200)}
-          className={`absolute top-0 left-0 w-full h-1 cursor-ns-resize hover:bg-accent-primary/60 transition-colors z-40 ${
+          className={`absolute top-0 left-0 w-full h-2 cursor-ns-resize hover:bg-accent-primary/60 transition-colors z-40 ${
             isResizing ? "bg-accent-primary" : "bg-transparent"
           }`}
           title="Drag to resize panel height (Double-click to reset)"
@@ -483,19 +519,30 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       )}
 
       {/* Header Bar */}
-      <div className="h-[42px] px-3 bg-surface-primary border-b border-border-subtle flex items-center justify-between shrink-0">
+      <div
+        onClick={() => {
+          if (!isOpen) setIsOpen(true);
+        }}
+        className={`h-[44px] sm:h-[42px] px-2.5 sm:px-3 bg-surface-primary border-b border-border-subtle flex items-center justify-between shrink-0 select-none ${
+          !isOpen ? "cursor-pointer hover:bg-surface-hover/70" : ""
+        }`}
+      >
         {/* Left Tabs */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar py-0.5">
           <button
-            onClick={() => setActiveTab("events")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-2xs ${
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTab("events");
+              if (!isOpen) setIsOpen(true);
+            }}
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-2xs shrink-0 ${
               activeTab === "events"
                 ? "bg-surface-secondary text-text-primary border border-border-medium font-bold"
                 : "text-text-muted hover:text-text-primary hover:bg-surface-hover font-semibold border border-transparent"
             }`}
           >
             <Terminal className="w-3.5 h-3.5 text-accent-primary" />
-            <span>Event Log</span>
+            <span>{isMobile ? "Logs" : "Event Log"}</span>
             <span
               className={`text-[9px] px-1.5 py-0.2 rounded-md font-mono font-bold ${
                 activeTab === "events"
@@ -510,8 +557,12 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           {!isNav2 && (
             <>
               <button
-                onClick={() => setActiveTab("breakpoints")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-2xs ${
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab("breakpoints");
+                  if (!isOpen) setIsOpen(true);
+                }}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-2xs shrink-0 ${
                   activeTab === "breakpoints"
                     ? "bg-surface-secondary text-text-primary border border-border-medium font-bold"
                     : "text-text-muted hover:text-text-primary hover:bg-surface-hover font-semibold border border-transparent"
@@ -520,7 +571,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 <span
                   className={`w-2 h-2 rounded-full ${allBreakpoints.length > 0 ? "bg-rose-500 animate-pulse" : "bg-border-strong"}`}
                 />
-                <span>Breakpoints</span>
+                <span>{isMobile ? "BPs" : "Breakpoints"}</span>
                 <span
                   className={`text-[9px] px-1.5 py-0.2 rounded-md font-mono font-bold ${
                     activeTab === "breakpoints"
@@ -535,15 +586,19 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
               </button>
 
               <button
-                onClick={() => setActiveTab("faults")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-2xs ${
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab("faults");
+                  if (!isOpen) setIsOpen(true);
+                }}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-2xs shrink-0 ${
                   activeTab === "faults"
                     ? "bg-surface-secondary text-text-primary border border-border-medium font-bold"
                     : "text-text-muted hover:text-text-primary hover:bg-surface-hover font-semibold border border-transparent"
                 }`}
               >
                 <Zap className="w-3.5 h-3.5 text-state-fault-text" />
-                <span>Fault Injections</span>
+                <span>{isMobile ? "Faults" : "Fault Injections"}</span>
                 <span
                   className={`text-[9px] px-1.5 py-0.2 rounded-md font-mono font-bold ${
                     activeTab === "faults"
@@ -561,12 +616,15 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         </div>
 
         {/* Right Tools & Collapse */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div
+          className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-1"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* TAB 1 Tools */}
           {activeTab === "events" && (
             <>
               <div
-                className="flex items-center gap-1.5  text-text-primary font-semibold  rounded-lg px-2.5 py-1 text-xs shadow-2xs max-w-[200px] truncate select-text"
+                className="hidden lg:flex items-center gap-1.5 text-text-primary font-semibold rounded-lg px-2.5 py-1 text-xs shadow-2xs max-w-[200px] truncate select-text"
                 title={`Active Behavior Tree: ${currentTreeName}`}
               >
                 <span className="text-text-muted font-medium shrink-0">
@@ -575,7 +633,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 <span className="truncate">{currentTreeName}</span>
               </div>
 
-              <div className="flex items-center bg-surface-secondary px-2.5 py-1 rounded-lg border border-border-subtle focus-within:border-border-focus focus-within:ring-2 focus-within:ring-accent-primary/20 shadow-2xs shrink-0">
+              <div className="hidden md:flex items-center bg-surface-secondary px-2.5 py-1 rounded-lg border border-border-subtle focus-within:border-border-focus focus-within:ring-2 focus-within:ring-accent-primary/20 shadow-2xs shrink-0">
                 <Search className="w-3 h-3 text-text-muted mr-1.5" />
                 <input
                   type="text"
@@ -589,7 +647,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-surface-secondary text-text-secondary font-medium border border-border-medium rounded-lg px-2.5 py-1 text-xs outline-none cursor-pointer shadow-2xs hover:border-border-strong transition-all shrink-0"
+                className="hidden md:block bg-surface-secondary text-text-secondary font-medium border border-border-medium rounded-lg px-2.5 py-1 text-xs outline-none cursor-pointer shadow-2xs hover:border-border-strong transition-all shrink-0"
               >
                 <option value="ALL">All Statuses</option>
                 <option value="RUNNING">RUNNING</option>
@@ -608,7 +666,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                       logContainerRef.current.scrollHeight;
                   }
                 }}
-                className={`px-3 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${
+                className={`px-2.5 sm:px-3 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${
                   autoScroll
                     ? "bg-accent-primary border-accent-primary font-bold shadow-xs text-white"
                     : "bg-surface-secondary text-text-primary dark:text-white border-border-subtle hover:bg-surface-hover"
@@ -626,22 +684,15 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                       : "text-text-primary dark:text-white"
                   }
                 >
-                  {autoScroll ? "AutoScroll: ON" : "AutoScroll: OFF"}
+                  {isMobile
+                    ? autoScroll
+                      ? "Auto"
+                      : "Paused"
+                    : autoScroll
+                      ? "AutoScroll: ON"
+                      : "AutoScroll: OFF"}
                 </span>
               </button>
-
-              {/* <button
-                onClick={onTogglePause}
-                className={`flex items-center gap-1 px-3 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${
-                  isPaused
-                    ? 'bg-state-paused-bg text-state-paused-text border-state-paused-border font-bold animate-pulse'
-                    : 'bg-surface-secondary text-text-muted border-border-subtle hover:text-text-primary'
-                }`}
-                title={isPaused ? 'Resume live updates' : 'Pause live stream'}
-              >
-                {isPaused ? <Play className="w-3 h-3 text-state-paused-text" /> : <Pause className="w-3 h-3" />}
-                <span>{isPaused ? 'Resume' : 'Pause'}</span>
-              </button> */}
 
               <button
                 onClick={onClearEvents}
@@ -656,7 +707,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           {/* TAB 2 Tools (Breakpoints) */}
           {!isNav2 && activeTab === "breakpoints" && (
             <>
-              <div className="flex items-center bg-surface-secondary px-2.5 py-1 rounded-lg border border-border-subtle focus-within:border-border-focus focus-within:ring-2 focus-within:ring-accent-primary/20 shadow-2xs shrink-0">
+              <div className="hidden md:flex items-center bg-surface-secondary px-2.5 py-1 rounded-lg border border-border-subtle focus-within:border-border-focus focus-within:ring-2 focus-within:ring-accent-primary/20 shadow-2xs shrink-0">
                 <Search className="w-3 h-3 text-text-muted mr-1.5" />
                 <input
                   type="text"
@@ -673,7 +724,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                   title="Remove all active breakpoints"
                 >
                   <Trash2 className="w-3 h-3" />
-                  <span>Clear All</span>
+                  <span className="hidden sm:inline">Clear All</span>
                 </button>
               )}
             </>
@@ -682,7 +733,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           {/* TAB 3 Tools (Fault Injections) */}
           {!isNav2 && activeTab === "faults" && (
             <>
-              <div className="flex items-center bg-surface-secondary px-2.5 py-1 rounded-lg border border-border-subtle focus-within:border-border-focus focus-within:ring-2 focus-within:ring-accent-primary/20 shadow-2xs shrink-0">
+              <div className="hidden md:flex items-center bg-surface-secondary px-2.5 py-1 rounded-lg border border-border-subtle focus-within:border-border-focus focus-within:ring-2 focus-within:ring-accent-primary/20 shadow-2xs shrink-0">
                 <Search className="w-3 h-3 text-text-muted mr-1.5" />
                 <input
                   type="text"
@@ -699,25 +750,55 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                   title="Clear all active fault overrides"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  <span>Reset All</span>
+                  <span className="hidden sm:inline">Reset All</span>
                 </button>
               )}
             </>
           )}
 
+          {/* Toggle Chevron */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted hover:text-text-primary transition-all cursor-pointer ml-1 shadow-2xs active:scale-95 shrink-0"
+            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted hover:text-text-primary transition-all cursor-pointer ml-1 shadow-2xs active:scale-95 shrink-0 bg-surface-secondary/70 sm:bg-transparent"
             title={isOpen ? "Collapse Panel" : "Expand Panel"}
           >
             {isOpen ? (
-              <ChevronDown className="w-3.5 h-3.5" />
+              <ChevronDown className="w-4 h-4 text-accent-primary sm:text-text-muted" />
             ) : (
-              <ChevronUp className="w-3.5 h-3.5" />
+              <ChevronUp className="w-4 h-4 text-accent-primary sm:text-text-muted animate-bounce sm:animate-none" />
             )}
           </button>
         </div>
       </div>
+
+      {/* Mobile Sub-Toolbar (Search & Filters when expanded on mobile) */}
+      {isOpen && isMobile && (
+        <div className="px-2.5 py-1.5 bg-surface-secondary/70 border-b border-border-subtle flex items-center gap-2 shrink-0">
+          <div className="flex-1 flex items-center bg-surface-primary px-2 py-1 rounded-lg border border-border-subtle text-xs">
+            <Search className="w-3 h-3 text-text-muted mr-1.5 shrink-0" />
+            <input
+              type="text"
+              placeholder={`Filter ${activeTab}...`}
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="bg-transparent text-xs text-text-primary placeholder:text-text-muted outline-none w-full font-sans"
+            />
+          </div>
+          {activeTab === "events" && (
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-surface-primary text-text-secondary font-medium border border-border-medium rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+            >
+              <option value="ALL">All Status</option>
+              <option value="RUNNING">RUNNING</option>
+              <option value="SUCCESS">SUCCESS</option>
+              <option value="FAILURE">FAILURE</option>
+              <option value="SKIPPED">SKIPPED</option>
+            </select>
+          )}
+        </div>
+      )}
 
       {/* Main Panel Content */}
       {isOpen && (
@@ -733,10 +814,12 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 <thead className="bg-surface-secondary text-text-muted sticky top-0 z-10 border-b border-border-subtle text-[9px] font-semibold uppercase tracking-wider font-mono">
                   <tr>
                     <th className="py-2 px-3">Time</th>
-                    <th className="py-2 px-3">Tree</th>
+                    <th className="py-2 px-3 hidden sm:table-cell">Tree</th>
                     <th className="py-2 px-3">Node Name</th>
                     <th className="py-2 px-3">Status Transition</th>
-                    <th className="py-2 px-3 text-right">Duration</th>
+                    <th className="py-2 px-3 text-right hidden sm:table-cell">
+                      Duration
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle text-xs">
@@ -747,7 +830,10 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                           style={{ height: `${topSpacerHeight}px` }}
                           aria-hidden="true"
                         >
-                          <td colSpan={5} style={{ padding: 0, border: 0 }} />
+                          <td
+                            colSpan={isMobile ? 3 : 5}
+                            style={{ padding: 0, border: 0 }}
+                          />
                         </tr>
                       )}
                       {visibleRows.map((ev, i) => {
@@ -763,7 +849,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                               {formatTimestamp(ev.timestamp)}
                             </td>
                             <td
-                              className="py-1.5 px-3 font-semibold text-text-primary max-w-[140px] truncate"
+                              className="py-1.5 px-3 font-semibold text-text-primary max-w-[140px] truncate hidden sm:table-cell"
                               title={
                                 trees.find((t) => t.tree_id === ev.tree_id)
                                   ?.display_name ||
@@ -803,7 +889,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                                 </span>
                               </div>
                             </td>
-                            <td className="py-1.5 px-3 text-right text-text-muted font-mono text-[10px] shrink-0 whitespace-nowrap">
+                            <td className="py-1.5 px-3 text-right text-text-muted font-mono text-[10px] shrink-0 whitespace-nowrap hidden sm:table-cell">
                               {ev.duration !== undefined && ev.duration > 0
                                 ? `${ev.duration.toFixed(1)} ms`
                                 : "-"}
@@ -816,14 +902,17 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                           style={{ height: `${bottomSpacerHeight}px` }}
                           aria-hidden="true"
                         >
-                          <td colSpan={5} style={{ padding: 0, border: 0 }} />
+                          <td
+                            colSpan={isMobile ? 3 : 5}
+                            style={{ padding: 0, border: 0 }}
+                          />
                         </tr>
                       )}
                     </>
                   ) : (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={isMobile ? 3 : 5}
                         className="py-8 text-center text-text-muted italic font-sans text-xs"
                       >
                         No events logged yet. Connect to a Behavior Tree to
@@ -844,8 +933,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                   <tr>
                     <th className="py-2 px-3 w-8"></th>
                     <th className="py-2 px-3">Node Name</th>
-                    <th className="py-2 px-3">Type</th>
-                    <th className="py-2 px-3">Tree</th>
+                    <th className="py-2 px-3 hidden sm:table-cell">Type</th>
+                    <th className="py-2 px-3 hidden sm:table-cell">Tree</th>
                     <th className="py-2 px-3">Status</th>
                     <th className="py-2 px-3 text-right w-20">Actions</th>
                   </tr>
@@ -870,13 +959,13 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                           {node.name}
                         </td>
                         <td
-                          className="py-1.5 px-3 text-text-muted font-mono text-[10px] max-w-[120px] truncate"
+                          className="py-1.5 px-3 text-text-muted font-mono text-[10px] max-w-[120px] truncate hidden sm:table-cell"
                           title={node.type || node.category}
                         >
                           {node.type || node.category}
                         </td>
                         <td
-                          className="py-1.5 px-3 text-text-primary font-semibold max-w-[120px] truncate"
+                          className="py-1.5 px-3 text-text-primary font-semibold max-w-[120px] truncate hidden sm:table-cell"
                           title={treeName}
                         >
                           {treeName}
@@ -931,14 +1020,10 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                   ) : (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={isMobile ? 4 : 6}
                         className="py-8 text-center text-text-muted italic font-sans text-xs"
                       >
                         No active breakpoints. Right-click any node in the graph
-                        or press{" "}
-                        <kbd className="font-mono font-semibold bg-surface-secondary px-1.5 py-0.5 rounded-md border border-border-subtle text-accent-primary">
-                          F9
-                        </kbd>{" "}
                         to set a breakpoint.
                       </td>
                     </tr>
@@ -956,10 +1041,12 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                   <tr>
                     <th className="py-2 px-3 w-8"></th>
                     <th className="py-2 px-3">Node Name</th>
-                    <th className="py-2 px-3">Category / Type</th>
-                    <th className="py-2 px-3">Tree</th>
+                    <th className="py-2 px-3 hidden sm:table-cell">
+                      Category / Type
+                    </th>
+                    <th className="py-2 px-3 hidden sm:table-cell">Tree</th>
                     <th className="py-2 px-3">Fault Override</th>
-                    <th className="py-2 px-3">Delay</th>
+                    <th className="py-2 px-3 hidden sm:table-cell">Delay</th>
                     <th className="py-2 px-3 text-right w-20">Actions</th>
                   </tr>
                 </thead>
@@ -981,13 +1068,13 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                           {node.name}
                         </td>
                         <td
-                          className="py-1.5 px-3 text-text-muted font-mono text-[10px] max-w-[120px] truncate"
+                          className="py-1.5 px-3 text-text-muted font-mono text-[10px] max-w-[120px] truncate hidden sm:table-cell"
                           title={node.type || node.category}
                         >
                           {node.type || node.category}
                         </td>
                         <td
-                          className="py-1.5 px-3 text-text-primary font-semibold max-w-[120px] truncate"
+                          className="py-1.5 px-3 text-text-primary font-semibold max-w-[120px] truncate hidden sm:table-cell"
                           title={treeName}
                         >
                           {treeName}
@@ -1030,7 +1117,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                             </span>
                           </div>
                         </td>
-                        <td className="py-1.5 px-3 font-mono text-text-muted text-[10px] shrink-0 whitespace-nowrap">
+                        <td className="py-1.5 px-3 font-mono text-text-muted text-[10px] shrink-0 whitespace-nowrap hidden sm:table-cell">
                           {node.fault_delay_ms
                             ? `${node.fault_delay_ms} ms`
                             : "-"}
@@ -1057,7 +1144,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                   ) : (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={isMobile ? 4 : 7}
                         className="py-8 text-center text-text-muted italic font-sans text-xs"
                       >
                         No active fault injections. Right-click any node in the

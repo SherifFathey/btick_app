@@ -20,6 +20,8 @@ import select
 import hashlib
 import random
 import threading
+import subprocess
+import re
 import xml.etree.ElementTree as ET
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
@@ -829,6 +831,180 @@ class StandaloneWebSocketServer:
 
 
 # ==============================================================================
+# Network Helper: Robust Local LAN IPv4 Detection
+# ==============================================================================
+def get_local_lan_ip() -> str:
+    """
+    Detects the primary active LAN IPv4 address of the host machine.
+    Excludes loopback (127.0.0.0/8), Docker (172.17.x.x, docker0),
+    link-local (169.254.x.x), and virtual / bridge network interfaces.
+    """
+    # 1. Inspect active network interfaces via ip tool if available
+    try:
+        out = subprocess.check_output(
+            ["ip", "-4", "-o", "addr", "show", "scope", "global"],
+            stderr=subprocess.DEVNULL,
+            timeout=1,
+        ).decode("utf-8", errors="ignore")
+
+        candidates = []
+        for line in out.strip().splitlines():
+            parts = line.split()
+            if len(parts) >= 4:
+                iface = parts[1]
+                addr = parts[3].split("/")[0]
+                if any(
+                    iface.startswith(prefix)
+                    for prefix in (
+                        "lo",
+                        "docker",
+                        "br-",
+                        "veth",
+                        "virbr",
+                        "vmnet",
+                        "tun",
+                        "tap",
+                        "tailscale",
+                        "zt",
+                    )
+                ):
+                    continue
+                if addr.startswith(("127.", "169.254.", "172.17.")):
+                    continue
+                is_lan_prefix = any(
+                    iface.startswith(p) for p in ("wl", "en", "eth", "wlan")
+                )
+                candidates.append((0 if is_lan_prefix else 1, addr))
+
+        if candidates:
+            candidates.sort(key=lambda x: x[0])
+            return candidates[0][1]
+    except Exception:
+        pass
+
+    # 2. Query kernel routing table for outgoing interface without sending UDP packets
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))
+        ip = s.getsockname()[0]
+        s.close()
+        if ip and not ip.startswith(("127.", "169.254.", "172.17.")):
+            return ip
+    except Exception:
+        pass
+
+    # 3. Fallback: hostname resolution
+    try:
+        hostname = socket.gethostname()
+        for ip in socket.gethostbyname_ex(hostname)[2]:
+            if not ip.startswith(("127.", "169.254.", "172.17.")):
+                return ip
+    except Exception:
+        pass
+
+    return "127.0.0.1"
+
+
+def apply_command_to_tree(tree_data: dict, cmd: dict):
+    """
+    Applies interactive user commands (breakpoints, faults, blackboard, ports)
+    to the in-memory tree model to guarantee state synchronization across all connected clients.
+    """
+    if not isinstance(tree_data, dict):
+        return
+    nodes = tree_data.get("nodes")
+    if not isinstance(nodes, list):
+        return
+
+    action = cmd.get("action")
+    raw_uid = cmd.get("uid")
+    uid = None
+    if raw_uid is not None:
+        try:
+            uid = int(raw_uid)
+        except (ValueError, TypeError):
+            pass
+
+    if action == "set_breakpoint":
+        enabled = cmd.get("enabled", True)
+        once = bool(cmd.get("once", False))
+        for n in nodes:
+            if isinstance(n, dict) and n.get("uid") == uid:
+                n["is_breakpoint"] = enabled
+                n["breakpoint_once"] = once if enabled else False
+                if not enabled and (
+                    n.get("is_paused") or n.get("status") == "PAUSED_AT_BREAKPOINT"
+                ):
+                    n["is_paused"] = False
+                    n["status"] = n.get("last_result", "IDLE")
+
+    elif action == "clear_breakpoint":
+        for n in nodes:
+            if isinstance(n, dict) and n.get("uid") == uid:
+                n["is_breakpoint"] = False
+                n["breakpoint_once"] = False
+                if n.get("is_paused") or n.get("status") == "PAUSED_AT_BREAKPOINT":
+                    n["is_paused"] = False
+                    n["status"] = n.get("last_result", "IDLE")
+
+    elif action == "clear_all_breakpoints":
+        for n in nodes:
+            if isinstance(n, dict):
+                n["is_breakpoint"] = False
+                n["breakpoint_once"] = False
+                if n.get("is_paused") or n.get("status") == "PAUSED_AT_BREAKPOINT":
+                    n["is_paused"] = False
+                    n["status"] = n.get("last_result", "IDLE")
+
+    elif action == "inject_fault":
+        fault_mode = cmd.get("fault_mode", "NONE")
+        fault_count = cmd.get("count", 1)
+        for n in nodes:
+            if isinstance(n, dict) and n.get("uid") == uid:
+                n["fault_mode"] = fault_mode
+                n["fault_count"] = fault_count
+
+    elif action == "clear_fault":
+        for n in nodes:
+            if isinstance(n, dict) and n.get("uid") == uid:
+                n["fault_mode"] = "NONE"
+                n["fault_count"] = 0
+
+    elif action == "clear_all_faults":
+        for n in nodes:
+            if isinstance(n, dict):
+                n["fault_mode"] = "NONE"
+                n["fault_count"] = 0
+
+    elif action in ("resume", "continue", "step"):
+        for n in nodes:
+            if isinstance(n, dict) and (
+                n.get("is_paused") or n.get("status") == "PAUSED_AT_BREAKPOINT"
+            ):
+                n["is_paused"] = False
+                n["status"] = n.get("last_result", "IDLE")
+
+    elif action == "set_blackboard":
+        key = cmd.get("key")
+        val = cmd.get("value")
+        if key is not None:
+            if "blackboard" not in tree_data or not isinstance(
+                tree_data["blackboard"], dict
+            ):
+                tree_data["blackboard"] = {}
+            tree_data["blackboard"][key] = val
+
+    elif action == "set_node_port":
+        port_name = cmd.get("port_name")
+        val = cmd.get("value")
+        for n in nodes:
+            if isinstance(n, dict) and n.get("uid") == uid:
+                ports = n.setdefault("ports", {})
+                if isinstance(ports, dict) and port_name:
+                    ports[port_name] = str(val)
+
+
+# ==============================================================================
 # SPA Static File HTTP Server (Handles HTML5 pushState & React router)
 # ==============================================================================
 class SPAHTTPHandler(SimpleHTTPRequestHandler):
@@ -869,10 +1045,17 @@ class SPAHTTPHandler(SimpleHTTPRequestHandler):
                 self.send_header("Pragma", "no-cache")
                 self.end_headers()
                 info = self.status_provider() if self.status_provider else {}
+                lan_ip = info.get("lan_ip") or get_local_lan_ip()
+                ws_port = info.get("ws_port", 8080)
+                http_port = info.get("http_port", 3000)
+                zmq_port = info.get("zmq_port", info.get("groot_port", 1667))
                 config_data = {
-                    "wsPort": info.get("ws_port", 8080),
-                    "httpPort": info.get("http_port", 3000),
-                    "zmqPort": info.get("zmq_port", info.get("groot_port", 1667)),
+                    "wsPort": ws_port,
+                    "httpPort": http_port,
+                    "zmqPort": zmq_port,
+                    "lanIp": lan_ip,
+                    "lanUrl": f"http://{lan_ip}:{http_port}",
+                    "wsUrl": f"ws://{lan_ip}:{ws_port}",
                 }
                 self.wfile.write(json.dumps(config_data).encode("utf-8"))
                 return
@@ -882,9 +1065,18 @@ class SPAHTTPHandler(SimpleHTTPRequestHandler):
                 self.send_header("Content-type", "application/json")
                 self._send_cors_headers()
                 self.end_headers()
-                info = (
+                raw_info = (
                     self.status_provider() if self.status_provider else {"status": "ok"}
                 )
+                info = (
+                    dict(raw_info) if isinstance(raw_info, dict) else {"status": "ok"}
+                )
+                lan_ip = info.get("lan_ip") or get_local_lan_ip()
+                ws_port = info.get("ws_port", 8080)
+                http_port = info.get("http_port", 3000)
+                info["lan_ip"] = lan_ip
+                info["lan_url"] = f"http://{lan_ip}:{http_port}"
+                info["ws_url"] = f"ws://{lan_ip}:{ws_port}"
                 self.wfile.write(json.dumps(info).encode("utf-8"))
                 return
 

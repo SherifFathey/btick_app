@@ -79,9 +79,19 @@ def try_import_nav2_dependencies():
 try_import_nav2_dependencies()
 
 try:
-    from common import StandaloneWebSocketServer, SPAHTTPHandler
+    from common import (
+        StandaloneWebSocketServer,
+        SPAHTTPHandler,
+        get_local_lan_ip,
+        apply_command_to_tree,
+    )
 except ImportError:
-    from .common import StandaloneWebSocketServer, SPAHTTPHandler
+    from .common import (
+        StandaloneWebSocketServer,
+        SPAHTTPHandler,
+        get_local_lan_ip,
+        apply_command_to_tree,
+    )
 
 
 def normalize_nav2_status(raw_status):
@@ -587,6 +597,13 @@ def main():
         default="/behavior_tree_log",
         help="Nav2 BehaviorTreeLog topic (default: /behavior_tree_log)",
     )
+    parser.add_argument(
+        "--host",
+        "--lan-ip",
+        dest="host",
+        default="",
+        help="Custom IP address or hostname to advertise (default: auto-detected LAN IP)",
+    )
     args = parser.parse_args()
 
     dist_dir = args.dist_dir
@@ -597,15 +614,21 @@ def main():
         if os.path.exists(candidate):
             dist_dir = candidate
 
+    lan_ip = args.host.strip() if args.host else get_local_lan_ip()
     print("=" * 66)
     print(" 🌲 NAV2 DEDICATED BEHAVIOR TREE LOG ROS 2 BRIDGE")
     print("=" * 66)
-    print(f" • WebSocket Broadcast : ws://0.0.0.0:{args.ws_port}")
     if args.http_port > 0 and dist_dir:
-        print(f" • Web App Browser URL : http://localhost:{args.http_port}")
-        print(f" • Static Assets Path  : {dist_dir}")
-    print(f" • Nav2 Topic Log      : {args.topic}")
-    print(" • Nav2 Status Change  : /behavior_tree_status_change")
+        print(f" • Local Access URL     : http://localhost:{args.http_port}")
+        if lan_ip and lan_ip != "127.0.0.1":
+            print(
+                f" • Mobile / Network URL : http://{lan_ip}:{args.http_port}  (Open on phone)"
+            )
+        print(f" • Static Assets Path   : {dist_dir}")
+    else:
+        print(f" • WebSocket Port       : {args.ws_port}")
+    print(f" • Nav2 Topic Log       : {args.topic}")
+    print(" • Nav2 Status Change   : /behavior_tree_status_change")
     print("=" * 66)
 
     bridge_server = None
@@ -647,6 +670,25 @@ def main():
                                 }
                             )
                         )
+                elif bridge_server:
+                    tree_id = cmd.get("tree_id")
+                    if tree_id and tree_id in bridge_server.trees:
+                        apply_command_to_tree(bridge_server.trees[tree_id], cmd)
+                    elif action in ("clear_all_breakpoints", "clear_all_faults"):
+                        for t in bridge_server.trees.values():
+                            apply_command_to_tree(t, cmd)
+                    ws_server.broadcast(
+                        json.dumps(
+                            {
+                                "type": "sync_action",
+                                "action": action,
+                                "data": cmd,
+                                "source": "nav2",
+                                "protocol": "nav2",
+                            }
+                        )
+                    )
+                    bridge_server.send_command(cmd)
         except Exception:
             pass
 
@@ -669,6 +711,9 @@ def main():
             directory=dist_dir,
             status_provider=lambda: {
                 "source": "nav2",
+                "ws_port": args.ws_port,
+                "http_port": args.http_port,
+                "lan_ip": lan_ip,
                 "trees": list(bridge_server.trees.keys()),
             },
             **kw,

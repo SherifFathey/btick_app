@@ -37,6 +37,8 @@ try:
         parse_xml_to_bt_model,
         StandaloneWebSocketServer,
         SPAHTTPHandler,
+        get_local_lan_ip,
+        apply_command_to_tree,
     )
 except ImportError:
     from .common import (
@@ -47,6 +49,8 @@ except ImportError:
         parse_xml_to_bt_model,
         StandaloneWebSocketServer,
         SPAHTTPHandler,
+        get_local_lan_ip,
+        apply_command_to_tree,
     )
 
 
@@ -1262,6 +1266,13 @@ def main():
     parser.add_argument(
         "--dist-dir", type=str, default="", help="Path to built web app dist folder"
     )
+    parser.add_argument(
+        "--host",
+        "--lan-ip",
+        dest="host",
+        default="",
+        help="Custom IP address or hostname to advertise (default: auto-detected LAN IP)",
+    )
     args = parser.parse_args()
 
     dist_dir = args.dist_dir
@@ -1272,14 +1283,20 @@ def main():
         if os.path.exists(candidate):
             dist_dir = candidate
 
+    lan_ip = args.host.strip() if args.host else get_local_lan_ip()
     print("=" * 66)
     print(" 🌲 GROOT2 DEDICATED ZMQ PROTOCOL BRIDGE")
     print("=" * 66)
-    print(f" • WebSocket Broadcast : ws://0.0.0.0:{args.ws_port}")
     if args.http_port > 0 and dist_dir:
-        print(f" • Web App Browser URL : http://localhost:{args.http_port}")
-        print(f" • Static Assets Path  : {dist_dir}")
-    print(f" • Groot2 Target       : tcp://{args.host}:{args.port}")
+        print(f" • Local Access URL     : http://localhost:{args.http_port}")
+        if lan_ip and lan_ip != "127.0.0.1":
+            print(
+                f" • Mobile / Network URL : http://{lan_ip}:{args.http_port}  (Open on phone)"
+            )
+        print(f" • Static Assets Path   : {dist_dir}")
+    else:
+        print(f" • WebSocket Port       : {args.ws_port}")
+    print(f" • Groot2 Target        : tcp://{args.host}:{args.port}")
     print("=" * 66)
 
     bridge_server = None
@@ -1288,8 +1305,23 @@ def main():
         try:
             msg = json.loads(msg_str)
             msg_type = msg.get("type")
-            if msg_type == "send_command" and "data" in msg:
-                bridge_server.send_command(msg["data"])
+            if msg_type in ("command", "send_command") and "data" in msg:
+                cmd = msg["data"]
+                action = cmd.get("action")
+                if bridge_server and bridge_server.cached_tree:
+                    apply_command_to_tree(bridge_server.cached_tree, cmd)
+                ws_server.broadcast(
+                    json.dumps(
+                        {
+                            "type": "sync_action",
+                            "action": action,
+                            "data": cmd,
+                            "source": "groot2",
+                            "protocol": "groot2",
+                        }
+                    )
+                )
+                bridge_server.send_command(cmd)
             elif msg_type == "switch_source":
                 host = msg.get("host", args.host)
                 port = int(msg.get("port", args.port))
@@ -1320,6 +1352,10 @@ def main():
             directory=dist_dir,
             status_provider=lambda: {
                 "source": "groot2",
+                "ws_port": args.ws_port,
+                "http_port": args.http_port,
+                "zmq_port": args.port,
+                "lan_ip": lan_ip,
                 "connected": bridge_server.running,
                 "tree": (bridge_server.cached_tree or {}).get("tree_id"),
             },

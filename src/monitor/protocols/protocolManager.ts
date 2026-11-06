@@ -4,6 +4,7 @@ import {
   IProtocolHandler,
   ProtocolCapabilities,
 } from "./types";
+import { applySyncActionToSession } from "./syncActionHandler";
 import {
   btickHandler,
   createInitialBTickSession,
@@ -92,6 +93,14 @@ export const routeIncomingMessage = (
       : targetProtocol === "nav2"
         ? createInitialNav2Session()
         : createInitialBTickSession());
+
+  if (data?.type === "sync_action") {
+    const updatedSession = applySyncActionToSession(data, currentSession);
+    return {
+      ...sessions,
+      [targetProtocol]: updatedSession,
+    };
+  }
 
   const updatedSession = handler.handleMessage(
     data,

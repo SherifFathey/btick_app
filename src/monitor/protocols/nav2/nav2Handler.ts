@@ -15,6 +15,7 @@ import {
   updateProtocolHeartbeat,
   findMatchingLogicalTreeKey,
 } from "../session/sessionManager";
+import { syncBreakpointsAndFaultsFromTree } from "../syncActionHandler";
 
 function findNav2EventNodeId(
   nodes: BTNodeModel[],
@@ -192,6 +193,17 @@ export class Nav2Handler implements IProtocolHandler {
       }
       nextTreesMap.set(treeId, treeToSave);
 
+      let nextBreakpoints = new Set(workingState.breakpoints);
+      let nextBreakpointOnce = new Set(workingState.breakpointOnceSet);
+      let nextFaultRules = new Map(workingState.faultRules);
+      syncBreakpointsAndFaultsFromTree(
+        treeId,
+        mergedNodes,
+        nextBreakpoints,
+        nextBreakpointOnce,
+        nextFaultRules,
+      );
+
       const nextSelectedTreeId =
         workingState.selectedTreeId &&
         (workingState.selectedTreeId === matchedExistingKey ||
@@ -214,6 +226,9 @@ export class Nav2Handler implements IProtocolHandler {
         treesMap: nextTreesMap,
         liveTreesMap: nextTreesMap,
         selectedTreeId: nextSelectedTreeId,
+        breakpoints: nextBreakpoints,
+        breakpointOnceSet: nextBreakpointOnce,
+        faultRules: nextFaultRules,
       };
     }
 

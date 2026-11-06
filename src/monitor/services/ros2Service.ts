@@ -11,9 +11,20 @@ export interface UserLog {
   nodeCount?: number;
 }
 
+export interface RuntimeNetworkConfig {
+  wsPort?: number | string;
+  httpPort?: number | string;
+  zmqPort?: number | string;
+  lanIp?: string;
+  lanUrl?: string;
+  wsUrl?: string;
+}
+
 class ROS2Service {
   private messageListeners: Set<MessageHandler> = new Set();
   private statusListeners: Set<StatusHandler> = new Set();
+  private configListeners: Set<(config: RuntimeNetworkConfig) => void> =
+    new Set();
   private isConnected: boolean = false;
 
   private ws: WebSocket | null = null;
@@ -41,17 +52,33 @@ class ROS2Service {
       }, 50);
     }
 
-    // 2. Fetch runtime config then connect to WebSocket Bridge once
+    // 2. Browser online/offline event listeners for robust network reconnection
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", () => {
+        if (!this.isConnected) {
+          if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+          }
+          this.initRuntimeConfig().then(() => this.connectWS());
+        }
+      });
+      window.addEventListener("offline", () => {
+        const wasConnected = this.isConnected;
+        this.isConnected = false;
+        if (wasConnected) {
+          this.notifyStatus(false);
+        }
+      });
+    }
+
+    // 3. Fetch runtime config then connect to WebSocket Bridge once
     this.initRuntimeConfig().then(() => {
       this.connectWS();
     });
   }
 
-  private runtimeConfig: {
-    wsPort?: number | string;
-    httpPort?: number | string;
-    zmqPort?: number | string;
-  } | null = null;
+  private runtimeConfig: RuntimeNetworkConfig | null = null;
 
   async initRuntimeConfig() {
     if (typeof window === "undefined" || (window as any).electronAPI) return;
@@ -69,6 +96,7 @@ class ROS2Service {
           if (data.wsPort && typeof window !== "undefined") {
             (window as any).__BTICK_RUNTIME_CONFIG__ = data;
           }
+          this.notifyConfig(data);
         }
       }
     } catch (e) {
@@ -77,6 +105,67 @@ class ROS2Service {
         e,
       );
     }
+  }
+
+  private notifyConfig(config: RuntimeNetworkConfig) {
+    this.configListeners.forEach((handler) => {
+      try {
+        handler(config);
+      } catch (err) {}
+    });
+  }
+
+  onConfigChange(handler: (config: RuntimeNetworkConfig) => void) {
+    this.configListeners.add(handler);
+    if (this.runtimeConfig) {
+      try {
+        handler(this.runtimeConfig);
+      } catch (err) {}
+    }
+    return () => this.configListeners.delete(handler);
+  }
+
+  getRuntimeConfig(): RuntimeNetworkConfig | null {
+    return this.runtimeConfig;
+  }
+
+  getWsUrl(): string {
+    if (typeof window === "undefined") return "ws://127.0.0.1:8080";
+    const host = window.location.hostname || "127.0.0.1";
+    const wsPort = this.getWsPort();
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${host}:${wsPort}`;
+  }
+
+  getLanUrl(): string {
+    if (typeof window === "undefined") return "http://127.0.0.1:3000";
+    if (this.runtimeConfig?.lanUrl) {
+      return this.runtimeConfig.lanUrl;
+    }
+    const lanIp = this.runtimeConfig?.lanIp;
+    const port = this.runtimeConfig?.httpPort || window.location.port || "3000";
+    if (lanIp && lanIp !== "127.0.0.1" && lanIp !== "localhost") {
+      return `${window.location.protocol}//${lanIp}:${port}`;
+    }
+    const host =
+      window.location.hostname && window.location.hostname !== "localhost"
+        ? window.location.hostname
+        : lanIp || "127.0.0.1";
+    return `${window.location.protocol}//${host}:${port}`;
+  }
+
+  getLanIp(): string {
+    if (this.runtimeConfig?.lanIp) {
+      return this.runtimeConfig.lanIp;
+    }
+    if (
+      typeof window !== "undefined" &&
+      window.location.hostname &&
+      window.location.hostname !== "localhost"
+    ) {
+      return window.location.hostname;
+    }
+    return "127.0.0.1";
   }
 
   private getWsPort(): string {
@@ -145,21 +234,37 @@ class ROS2Service {
       };
 
       this.ws.onclose = () => {
+        const wasConnected = this.isConnected;
+        this.isConnected = false;
+        if (wasConnected) {
+          this.notifyStatus(false);
+        }
         if (!this.reconnectTimer) {
-          this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = setTimeout(async () => {
             this.reconnectTimer = null;
+            await this.initRuntimeConfig();
             this.connectWS();
           }, 2000);
         }
       };
 
       this.ws.onerror = () => {
-        // Will reconnect on close
+        const wasConnected = this.isConnected;
+        this.isConnected = false;
+        if (wasConnected) {
+          this.notifyStatus(false);
+        }
       };
     } catch (e) {
+      const wasConnected = this.isConnected;
+      this.isConnected = false;
+      if (wasConnected) {
+        this.notifyStatus(false);
+      }
       if (!this.reconnectTimer) {
-        this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = setTimeout(async () => {
           this.reconnectTimer = null;
+          await this.initRuntimeConfig();
           this.connectWS();
         }, 2000);
       }

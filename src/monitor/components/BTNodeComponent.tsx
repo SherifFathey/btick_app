@@ -338,9 +338,17 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
     useEffect(() => {
       if (!editingPortName) return;
 
-      const rafId = requestAnimationFrame(() => {
+      let timer: any;
+      const doAutoCenter = () => {
         const editorEl = editorContainerRef.current;
         if (!editorEl) return;
+
+        // Ensure editor is visible inside any internally scrollable node card container
+        try {
+          editorEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        } catch {
+          // ignore if unsupported
+        }
 
         const currentViewport = getViewport();
         const editorRect = editorEl.getBoundingClientRect();
@@ -359,64 +367,40 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
               height: window.innerHeight,
             };
 
-        const minReadableZoom = 0.75;
-        const isTooSmall = currentViewport.zoom < minReadableZoom;
+        // Always smoothly auto-center the part being edited in the canvas
+        const minReadableZoom = 0.9;
+        const targetZoom = Math.max(currentViewport.zoom, minReadableZoom);
+        const editorCenterX = editorRect.left + editorRect.width / 2;
+        const editorCenterY = editorRect.top + editorRect.height / 2;
+        const flowX =
+          (editorCenterX - containerRect.left - currentViewport.x) /
+          currentViewport.zoom;
+        const flowY =
+          (editorCenterY - containerRect.top - currentViewport.y) /
+          currentViewport.zoom;
 
-        if (isTooSmall) {
-          // If heavily zoomed out, zoom in to comfortable minimum zoom and center the editor
-          const targetZoom = minReadableZoom;
-          const editorCenterX = editorRect.left + editorRect.width / 2;
-          const editorCenterY = editorRect.top + editorRect.height / 2;
-          const flowX =
-            (editorCenterX - containerRect.left - currentViewport.x) /
-            currentViewport.zoom;
-          const flowY =
-            (editorCenterY - containerRect.top - currentViewport.y) /
-            currentViewport.zoom;
+        const targetX = containerRect.width / 2 - flowX * targetZoom;
+        const targetY = containerRect.height / 2 - flowY * targetZoom;
 
-          const targetX = containerRect.width / 2 - flowX * targetZoom;
-          const targetY = containerRect.height / 2 - flowY * targetZoom;
+        setViewport(
+          {
+            x: targetX,
+            y: targetY,
+            zoom: targetZoom,
+          },
+          { duration: 350 },
+        );
+      };
 
-          setViewport(
-            {
-              x: targetX,
-              y: targetY,
-              zoom: targetZoom,
-            },
-            { duration: 250 },
-          );
-        } else {
-          // Already at readable zoom: calculate minimal pan needed to ensure editor & buttons are fully visible
-          const padding = 28;
-          let deltaX = 0;
-          let deltaY = 0;
-
-          if (editorRect.left < containerRect.left + padding) {
-            deltaX = containerRect.left + padding - editorRect.left;
-          } else if (editorRect.right > containerRect.right - padding) {
-            deltaX = containerRect.right - padding - editorRect.right;
-          }
-
-          if (editorRect.top < containerRect.top + padding) {
-            deltaY = containerRect.top + padding - editorRect.top;
-          } else if (editorRect.bottom > containerRect.bottom - padding) {
-            deltaY = containerRect.bottom - padding - editorRect.bottom;
-          }
-
-          if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
-            setViewport(
-              {
-                x: currentViewport.x + deltaX,
-                y: currentViewport.y + deltaY,
-                zoom: currentViewport.zoom,
-              },
-              { duration: 250 },
-            );
-          }
-        }
+      const rafId = requestAnimationFrame(() => {
+        doAutoCenter();
+        timer = setTimeout(doAutoCenter, 50);
       });
 
-      return () => cancelAnimationFrame(rafId);
+      return () => {
+        cancelAnimationFrame(rafId);
+        if (timer) clearTimeout(timer);
+      };
     }, [editingPortName, getViewport, setViewport]);
 
     const handlePortStartEdit = (port: BTPortDetail) => {
@@ -673,22 +657,98 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
     const [isHovered, setIsHovered] = useState(false);
     const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const handleMouseEnter = () => {
-      if (hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current);
-      }
-      hoverTimerRef.current = setTimeout(() => {
-        setIsHovered(true);
-      }, 250);
-    };
-
-    const handleMouseLeave = () => {
+    const dismissHover = useCallback(() => {
       if (hoverTimerRef.current) {
         clearTimeout(hoverTimerRef.current);
         hoverTimerRef.current = null;
       }
       setIsHovered(false);
-    };
+    }, []);
+
+    const handlePointerEnter = useCallback((e: React.PointerEvent) => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+      const delay = e.pointerType === "touch" ? 250 : 200;
+      hoverTimerRef.current = setTimeout(() => {
+        setIsHovered(true);
+      }, delay);
+    }, []);
+
+    const handlePointerLeave = useCallback(() => {
+      dismissHover();
+    }, [dismissHover]);
+
+    const handlePointerUp = useCallback(() => {
+      dismissHover();
+    }, [dismissHover]);
+
+    const handlePointerCancel = useCallback(() => {
+      dismissHover();
+    }, [dismissHover]);
+
+    // Automatically dismiss hover whenever the node is selected
+    useEffect(() => {
+      if (selected) {
+        dismissHover();
+      }
+    }, [selected, dismissHover]);
+
+    // Active global tracker: when hovered, moving outside, scrolling/zooming, or releasing touch immediately dismisses it
+    useEffect(() => {
+      if (!isHovered) return;
+
+      const handleGlobalPointerMove = (e: PointerEvent | MouseEvent) => {
+        if (!nodeRef.current) {
+          dismissHover();
+          return;
+        }
+        const rect = nodeRef.current.getBoundingClientRect();
+        const isInside =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom;
+
+        if (!isInside) {
+          dismissHover();
+        }
+      };
+
+      const handleGlobalPointerUp = () => {
+        dismissHover();
+      };
+
+      const handleGlobalWheel = () => {
+        dismissHover();
+      };
+
+      window.addEventListener("pointermove", handleGlobalPointerMove, {
+        passive: true,
+      });
+      window.addEventListener("pointerup", handleGlobalPointerUp, {
+        passive: true,
+      });
+      window.addEventListener("pointercancel", handleGlobalPointerUp, {
+        passive: true,
+      });
+      window.addEventListener("touchend", handleGlobalPointerUp, {
+        passive: true,
+      });
+      window.addEventListener("touchcancel", handleGlobalPointerUp, {
+        passive: true,
+      });
+      window.addEventListener("wheel", handleGlobalWheel, { passive: true });
+
+      return () => {
+        window.removeEventListener("pointermove", handleGlobalPointerMove);
+        window.removeEventListener("pointerup", handleGlobalPointerUp);
+        window.removeEventListener("pointercancel", handleGlobalPointerUp);
+        window.removeEventListener("touchend", handleGlobalPointerUp);
+        window.removeEventListener("touchcancel", handleGlobalPointerUp);
+        window.removeEventListener("wheel", handleGlobalWheel);
+      };
+    }, [isHovered, dismissHover]);
 
     useEffect(() => {
       return () => {
@@ -922,9 +982,16 @@ export const BTNodeComponent: React.FC<BTNodeComponentProps> = memo(
       <div
         ref={nodeRef}
         className={`relative w-[240px] select-none ${cursorClass}`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onMouseEnter={handlePointerEnter as any}
+        onMouseLeave={handlePointerLeave}
+        onTouchEnd={handlePointerUp}
+        onTouchCancel={handlePointerCancel}
         onContextMenu={(e) => {
+          dismissHover();
           e.preventDefault();
           e.stopPropagation();
           if (onNodeContextMenu) {

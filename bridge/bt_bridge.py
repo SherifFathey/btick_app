@@ -21,12 +21,22 @@ import urllib.error
 from http.server import ThreadingHTTPServer
 
 try:
-    from common import StandaloneWebSocketServer, SPAHTTPHandler
+    from common import (
+        StandaloneWebSocketServer,
+        SPAHTTPHandler,
+        get_local_lan_ip,
+        apply_command_to_tree,
+    )
     from btick_bridge import BTickROS2Bridge, HAVE_RCLPY
     from groot2_bridge import Groot2ZMQBridge, HAVE_ZMQ
     from nav2_bridge import Nav2ROS2Bridge
 except ImportError:
-    from .common import StandaloneWebSocketServer, SPAHTTPHandler
+    from .common import (
+        StandaloneWebSocketServer,
+        SPAHTTPHandler,
+        get_local_lan_ip,
+        apply_command_to_tree,
+    )
     from .btick_bridge import BTickROS2Bridge, HAVE_RCLPY
     from .groot2_bridge import Groot2ZMQBridge, HAVE_ZMQ
     from .nav2_bridge import Nav2ROS2Bridge
@@ -44,6 +54,7 @@ class UnifiedBTBridgeServer:
         enable_groot: bool = True,
         enable_nav2: bool = True,
         open_browser: bool = False,
+        lan_ip: str = "",
     ):
         self.ws_port = ws_port
         self.http_port = http_port
@@ -51,6 +62,7 @@ class UnifiedBTBridgeServer:
         self.groot_host = groot_host
         self.groot_port = groot_port
         self.zmq_port = groot_port
+        self.lan_ip = lan_ip or get_local_lan_ip()
 
         self.enable_ros = enable_ros
         self.enable_groot = enable_groot
@@ -475,6 +487,7 @@ class UnifiedBTBridgeServer:
             "http_port": self.http_port,
             "zmq_port": self.groot_port,
             "groot_port": self.groot_port,
+            "lan_ip": self.lan_ip,
             "has_ros2": HAVE_RCLPY and bool(self.btick_bridge),
             "has_groot2": HAVE_ZMQ and bool(self.groot2_bridge),
             "groot2_connected": bool(self.groot2_bridge and self.groot2_bridge.running),
@@ -597,6 +610,44 @@ class UnifiedBTBridgeServer:
                     cmd["uid"] = uid
                 except (ValueError, TypeError):
                     pass
+
+            target_source = source or self.current_source
+
+            # Synchronize state: Update in-memory tree model so state persists across client connects
+            if (
+                target_source == "btick"
+                and self.btick_bridge
+                and hasattr(self.btick_bridge, "trees")
+            ):
+                if tree_id and tree_id in self.btick_bridge.trees:
+                    apply_command_to_tree(self.btick_bridge.trees[tree_id], cmd)
+                elif action in ("clear_all_breakpoints", "clear_all_faults"):
+                    for t in self.btick_bridge.trees.values():
+                        apply_command_to_tree(t, cmd)
+            elif target_source in ("groot2", "groot") and self.groot2_bridge:
+                if getattr(self.groot2_bridge, "cached_tree", None):
+                    apply_command_to_tree(self.groot2_bridge.cached_tree, cmd)
+            elif (
+                target_source == "nav2"
+                and self.nav2_bridge
+                and hasattr(self.nav2_bridge, "trees")
+            ):
+                if tree_id and tree_id in self.nav2_bridge.trees:
+                    apply_command_to_tree(self.nav2_bridge.trees[tree_id], cmd)
+                elif action in ("clear_all_breakpoints", "clear_all_faults"):
+                    for t in self.nav2_bridge.trees.values():
+                        apply_command_to_tree(t, cmd)
+
+            # Broadcast sync action to all connected WebSocket clients (Desktop, Mobile, etc.)
+            self.broadcast_data(
+                {
+                    "type": "sync_action",
+                    "action": action,
+                    "data": cmd,
+                    "source": target_source,
+                    "protocol": target_source,
+                }
+            )
 
             # Protocol-isolated Blackboard Editing
             if action == "set_blackboard":
@@ -844,6 +895,13 @@ def main():
         help=f"Automatically open browser at http://localhost:<HTTP_PORT> (default: {default_open_browser})",
     )
     parser.add_argument(
+        "--host",
+        "--lan-ip",
+        dest="host",
+        default="",
+        help="Custom IP address or hostname to advertise (default: auto-detected LAN IP)",
+    )
+    parser.add_argument(
         "--protocol",
         choices=["all", "btick", "groot", "nav2"],
         default="all",
@@ -888,23 +946,31 @@ def main():
 |____/ |_| |_|\___|_|\_\
                         """
     )
+    lan_ip = args.host.strip() if args.host else get_local_lan_ip()
     print("=" * 66)
     print(" 🌲 BTICK UNIFIED MULTI-PROTOCOL BRIDGE SERVER")
     print("=" * 66)
-    print(f" • WebSocket Broadcast : ws://0.0.0.0:{args.ws_port}")
     if args.http_port > 0 and dist_dir:
-        print(f" • Web App Browser URL : http://0.0.0.0:{args.http_port}")
-        print(f" • Static Assets Path  : {dist_dir}")
+        print(f" • Local Access URL     : http://localhost:{args.http_port}")
+        if lan_ip and lan_ip != "127.0.0.1":
+            print(
+                f" • Mobile / Network URL : http://{lan_ip}:{args.http_port}  (Open on phone)"
+            )
+        print(f" • Static Assets Path   : {dist_dir}")
         if args.open_browser:
             print(
-                f" • Auto Open Browser   : Enabled (http://localhost:{args.http_port})"
+                f" • Auto Open Browser    : Enabled (http://localhost:{args.http_port})"
             )
+    else:
+        print(f" • WebSocket Port       : {args.ws_port}")
     if enable_groot:
-        print(f" • Groot2/ZMQ Target   : tcp://{args.zmq_host}:{args.zmq_port}")
+        print(f" • Groot2/ZMQ Target    : tcp://{args.zmq_host}:{args.zmq_port}")
     if enable_ros:
-        print(" • ROS 2 BTick         : /btick/tree_discovery, /btick/tree_transitions")
+        print(
+            " • ROS 2 BTick          : /btick/tree_discovery, /btick/tree_transitions"
+        )
     if enable_nav2:
-        print(" • Nav2 Behavior Tree  : /behavior_tree_log")
+        print(" • Nav2 Behavior Tree   : /behavior_tree_log")
     print("=" * 66)
 
     server = UnifiedBTBridgeServer(
@@ -917,6 +983,7 @@ def main():
         enable_groot=enable_groot,
         enable_nav2=enable_nav2,
         open_browser=args.open_browser,
+        lan_ip=lan_ip,
     )
     server.start()
 

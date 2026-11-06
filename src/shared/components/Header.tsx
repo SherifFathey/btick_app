@@ -14,6 +14,9 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  ChevronRight,
+  ChevronLeft,
+  MoreVertical,
 } from "lucide-react";
 import treeLogo from "../../assets/tree.png";
 import { RecordingSession, ViewMode } from "../../monitor/types/bt";
@@ -26,8 +29,11 @@ import { normalizeRecordingSession } from "../../monitor/protocols/session/sessi
 import { ValidationIssue } from "../../editor/types";
 import { AppMode } from "../types";
 import { SettingsPopover } from "./SettingsPopover";
+import { MobileAccessModal } from "./MobileAccessModal";
 
 interface HeaderProps {
+  onToggleMobileSidebar?: () => void;
+  isMobileSidebarOpen?: boolean;
   appMode?: AppMode;
   onModeChange?: (mode: AppMode) => void;
   isConnected: boolean;
@@ -81,6 +87,8 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  onToggleMobileSidebar,
+  isMobileSidebarOpen,
   appMode = "monitor",
   onModeChange,
   isConnected = false,
@@ -144,6 +152,8 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileAccessOpen, setIsMobileAccessOpen] = useState(false);
+  const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
 
   const handleSessionFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -230,8 +240,23 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-[44px] bg-surface-primary border-b border-border-subtle px-3 flex items-center justify-between gap-2.5 select-text whitespace-nowrap overflow-visible relative font-sans z-40">
-      {/* Left: App Branding */}
-      <div className="flex items-center gap-2 justify-start min-w-0 shrink-0">
+      {/* Left: Mobile Navigation Trigger + App Branding */}
+      <div className="flex items-center gap-1.5 justify-start min-w-0 shrink-0">
+        {onToggleMobileSidebar && (
+          <button
+            type="button"
+            onClick={onToggleMobileSidebar}
+            className="lg:hidden p-1.5 rounded-lg border border-border-medium bg-surface-primary hover:bg-surface-hover text-text-secondary hover:text-text-primary transition-all cursor-pointer shadow-2xs active:scale-95"
+            title={isMobileSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+            aria-label="Toggle Sidebar"
+          >
+            {isMobileSidebarOpen ? (
+              <ChevronLeft className="w-3.5 h-3.5 text-accent-primary" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 text-accent-primary" />
+            )}
+          </button>
+        )}
         <div className="flex items-center gap-2 shrink-0 pr-1">
           <img
             src={treeLogo}
@@ -317,8 +342,8 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center justify-end gap-1.5 shrink-0 whitespace-nowrap">
         {appMode === "monitor" && (
           <>
-            {/* Load Tree XML, Record, Save, Load Session in a distinct container box */}
-            <div className="flex items-center gap-1 bg-surface-secondary/70 rounded-xl p-0.5 px-1">
+            {/* Desktop Toolbar: Load Tree XML, Record, Save, Load Session */}
+            <div className="hidden md:flex items-center gap-1 bg-surface-secondary/70 rounded-xl p-0.5 px-1">
               {!isRecording ? (
                 <button
                   onClick={() => onStartRecording(selectedTreeId || undefined)}
@@ -365,6 +390,67 @@ export const Header: React.FC<HeaderProps> = ({
                 <FolderOpen className="w-3.5 h-3.5 shrink-0" />
                 <span className="whitespace-nowrap">Load</span>
               </button>
+            </div>
+
+            {/* Mobile Actions Dropdown Trigger (Compact) */}
+            <div className="relative md:hidden flex items-center">
+              <button
+                type="button"
+                onClick={() => setIsMobileActionsOpen((prev) => !prev)}
+                className="h-7 px-2 flex items-center gap-1 rounded-lg border border-border-medium bg-surface-primary hover:bg-surface-hover text-text-secondary hover:text-text-primary transition-all cursor-pointer shadow-2xs active:scale-95 text-xs font-semibold"
+                title="Session Actions (Record / Save / Load)"
+                aria-label="Actions"
+              >
+                <MoreVertical className="w-3.5 h-3.5 text-accent-primary" />
+                <span className="text-[11px]">Actions</span>
+              </button>
+
+              {isMobileActionsOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1.5 w-48 bg-surface-primary border border-border-medium rounded-xl shadow-xl p-1.5 space-y-1 font-sans text-xs z-50 animate-in fade-in"
+                  onClick={() => setIsMobileActionsOpen(false)}
+                >
+                  {!isRecording ? (
+                    <button
+                      onClick={() =>
+                        onStartRecording(selectedTreeId || undefined)
+                      }
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-surface-hover text-text-primary text-xs font-medium cursor-pointer"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                      <span>Start Recording</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        onStopRecording(selectedTreeId || undefined)
+                      }
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-rose-500/15 text-rose-600 font-bold text-xs cursor-pointer"
+                    >
+                      <Square className="w-3 h-3 fill-current shrink-0" />
+                      <span>Stop Recording</span>
+                    </button>
+                  )}
+
+                  {ENABLE_LIVE_SESSION_RECORDING && (
+                    <button
+                      onClick={onSaveSession}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-surface-hover text-text-primary text-xs font-medium cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-accent-primary shrink-0" />
+                      <span>Save Session</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => sessionInputRef.current?.click()}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-surface-hover text-text-primary text-xs font-medium cursor-pointer"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-text-secondary shrink-0" />
+                    <span>Load Session (.json)</span>
+                  </button>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -520,8 +606,16 @@ export const Header: React.FC<HeaderProps> = ({
               appMode === "monitor" &&
               Boolean(onLiveStatusDisplayModeChange || liveStatusDisplayMode)
             }
+            onOpenMobileAccess={() => setIsMobileAccessOpen(true)}
+            isConnected={isConnected}
           />
         </div>
+
+        <MobileAccessModal
+          isOpen={isMobileAccessOpen}
+          onClose={() => setIsMobileAccessOpen(false)}
+          isConnected={isConnected}
+        />
       </div>
     </header>
   );

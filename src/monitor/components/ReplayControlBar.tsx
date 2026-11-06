@@ -9,6 +9,7 @@ import {
   Gauge,
   Download,
 } from "lucide-react";
+import { useResponsiveLayout } from "../../shared/hooks/useResponsiveLayout";
 import { ReplayState } from "../types/bt";
 
 interface ReplayControlBarProps {
@@ -34,6 +35,7 @@ export const ReplayControlBar: React.FC<ReplayControlBarProps> = ({
   onSpeedChange,
   onSaveSession,
 }) => {
+  const { isMobile, isTablet } = useResponsiveLayout();
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const pendingSeekRafRef = useRef<number | null>(null);
   const pendingSeekTimeRef = useRef<number | null>(null);
@@ -114,6 +116,150 @@ export const ReplayControlBar: React.FC<ReplayControlBarProps> = ({
       });
     }
   };
+
+  if (isMobile) {
+    return (
+      <div className="bg-surface-primary border-t border-border-medium px-3 py-2 flex flex-col gap-2 text-xs text-text-primary z-30 font-sans select-text shrink-0 shadow-lg">
+        {/* Row 1: Timeline Scrubber & Speed Selector */}
+        <div className="flex items-center gap-2 w-full">
+          <span className="text-[10px] font-mono font-semibold text-text-muted shrink-0 w-12 text-right">
+            {formatDuration(currentReplayTimeMs)}
+          </span>
+          <div className="flex-1 min-w-0">
+            <input
+              type="range"
+              min="0"
+              max="1000"
+              value={sliderValue}
+              onChange={handleSliderChange}
+              className="w-full h-2 bg-surface-secondary border border-border-medium rounded-lg appearance-none accent-accent-primary cursor-pointer touch-none"
+            />
+          </div>
+          <span className="text-[10px] font-mono font-semibold text-text-muted shrink-0 w-12">
+            {formatDuration(totalDurationMs)}
+          </span>
+          <div className="flex items-center gap-1 bg-surface-secondary px-2 py-0.5 rounded-lg border border-border-subtle text-[10px] shrink-0">
+            <Gauge className="w-3 h-3 text-text-muted" />
+            <select
+              value={speed}
+              onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
+              className="bg-transparent text-accent-primary font-bold outline-none cursor-pointer"
+            >
+              <option value={0.25}>0.25x</option>
+              <option value={0.5}>0.5x</option>
+              <option value={1.0}>1x</option>
+              <option value={2.0}>2x</option>
+              <option value={4.0}>4x</option>
+              <option value={8.0}>8x</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Row 2: Info & Playback Controls */}
+        <div className="flex items-center justify-between gap-1 w-full">
+          {/* Session / Event Counter */}
+          <div className="flex items-center gap-1 font-mono text-[11px] truncate min-w-0 max-w-[120px]">
+            <Film className="w-3.5 h-3.5 text-accent-primary shrink-0" />
+            <span className="text-text-muted truncate">
+              {currentIndex + 1}/{totalEvents}
+            </span>
+          </div>
+
+          {/* Center Playback Controls */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={onStepBack}
+              disabled={currentIndex <= 0}
+              className="p-1.5 rounded-lg bg-surface-secondary hover:bg-surface-hover disabled:opacity-30 text-text-primary border border-border-medium transition-all active:scale-95"
+              title="Step backward"
+            >
+              <SkipBack className="w-3.5 h-3.5" />
+            </button>
+
+            {isPlaying ? (
+              <button
+                onClick={onPause}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg border border-amber-600 font-bold text-xs shadow-xs active:scale-95"
+              >
+                <Pause className="w-3.5 h-3.5" />
+                <span>Pause</span>
+              </button>
+            ) : (
+              <button
+                onClick={onPlay}
+                className="flex items-center gap-1.5 bg-accent-primary hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg border border-accent-border font-bold text-xs shadow-xs active:scale-95"
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Play</span>
+              </button>
+            )}
+
+            <button
+              onClick={onStepForward}
+              disabled={currentIndex >= totalEvents - 1}
+              className="p-1.5 rounded-lg bg-surface-secondary hover:bg-surface-hover disabled:opacity-30 text-text-primary border border-border-medium transition-all active:scale-95"
+              title="Step forward"
+            >
+              <SkipForward className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Actions (Save / Remove) */}
+          <div className="flex items-center gap-1 shrink-0">
+            {replayState.replaySource === "record" && onSaveSession && (
+              <button
+                onClick={onSaveSession}
+                className="p-1.5 rounded-lg bg-accent-primary hover:bg-accent-hover text-white border border-accent-border transition-all active:scale-95"
+                title="Save recording"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsConfirmingClear(true)}
+              className="p-1.5 rounded-lg bg-surface-secondary hover:bg-rose-50 text-rose-600 dark:text-rose-400 border border-border-medium transition-all active:scale-95"
+              title="Exit / Remove Record"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+            </button>
+          </div>
+        </div>
+
+        {/* Clear Confirmation Modal */}
+        {isConfirmingClear && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="rounded-2xl border border-border-medium bg-surface-primary p-4 shadow-xl max-w-xs w-full"
+            >
+              <p className="mb-4 text-xs font-semibold text-text-primary">
+                Are you sure you want to stop and remove the current replay
+                session?
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingClear(false)}
+                  className="rounded-lg border border-border-medium px-3 py-1.5 text-xs font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={onClearRecording}
+                  className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="h-[56px] bg-surface-primary border-t border-border-subtle px-3 flex items-center justify-between text-xs text-text-primary z-30 font-sans select-text shrink-0 gap-2">

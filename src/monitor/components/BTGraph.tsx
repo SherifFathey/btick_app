@@ -37,6 +37,7 @@ import { BTMonitorEdge } from "./BTMonitorEdge";
 import { DelayInputControl } from "./DelayInputControl";
 import { generateGraphElements } from "../utils/dagreLayout";
 import treeStructureIcon from "../../assets/tree-structure.png";
+import { useResponsiveLayout } from "../../shared/hooks/useResponsiveLayout";
 import {
   Search,
   Target,
@@ -122,10 +123,70 @@ const edgeTypes = {
   btMonitorEdge: BTMonitorEdge as any,
 };
 
+export const calculateAdaptiveFitOptions = (
+  isMobile: boolean,
+  isTablet: boolean,
+  canvasWidth: number,
+  canvasHeight: number,
+  visibleNodes: Node[],
+) => {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const n of visibleNodes) {
+    const w = n.measured?.width || (n as any).width || 220;
+    const h = n.measured?.height || (n as any).height || 60;
+    minX = Math.min(minX, n.position.x);
+    maxX = Math.max(maxX, n.position.x + w);
+    minY = Math.min(minY, n.position.y);
+    maxY = Math.max(maxY, n.position.y + h);
+  }
+
+  const treeWidth = Math.max(1, maxX - minX);
+  const treeHeight = Math.max(1, maxY - minY);
+  const nodeCount = visibleNodes.length;
+
+  const padding = isMobile ? 0.14 : isTablet ? 0.18 : 0.22;
+  const availW = Math.max(100, canvasWidth * (1 - padding * 2));
+  const availH = Math.max(100, canvasHeight * (1 - padding * 2));
+
+  const scaleX = availW / treeWidth;
+  const scaleY = availH / treeHeight;
+  const naturalScale = Math.min(scaleX, scaleY);
+
+  // Responsive upper bound on zoom:
+  // On mobile: 0.85 baseline cap, dynamically adjusted for tree size & node count
+  let maxZoomCap: number;
+  if (isMobile) {
+    if (nodeCount <= 4) {
+      maxZoomCap = 0.85;
+    } else if (nodeCount <= 12) {
+      maxZoomCap = Math.min(0.85, Math.max(0.6, naturalScale));
+    } else {
+      maxZoomCap = Math.min(0.85, naturalScale);
+    }
+  } else if (isTablet) {
+    maxZoomCap =
+      nodeCount <= 4 ? 1.0 : Math.min(1.0, Math.max(0.7, naturalScale));
+  } else {
+    maxZoomCap =
+      nodeCount <= 3 ? 1.15 : Math.min(1.2, Math.max(0.75, naturalScale));
+  }
+
+  return {
+    padding,
+    minZoom: 0.05,
+    maxZoom: maxZoomCap,
+    duration: 350,
+  };
+};
+
 const DEFAULT_FIT_VIEW_OPTIONS = {
   padding: 0.2,
   minZoom: 0.05,
-  maxZoom: 2,
+  maxZoom: 1.15,
   duration: 350,
 };
 
@@ -217,6 +278,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 }) => {
   const isNav2 = activeProtocol === "nav2";
   const isReadOnlyDebug = isNav2 || isReplaying;
+  const { isMobile, isTablet } = useResponsiveLayout();
   const { fitView, setCenter, setViewport, getNodes } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
 
@@ -761,6 +823,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   );
 
   const nodesInitialized = useNodesInitialized();
+  const storeApi = useStoreApi();
   const fitViewRef = useRef(fitView);
   fitViewRef.current = fitView;
   const updateNodeInternalsRef = useRef(updateNodeInternals);
@@ -783,12 +846,33 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       if (nodes.length === 0) return Promise.resolve(false);
       const isOptionsObject =
         options && typeof options === "object" && !("nativeEvent" in options);
+
+      const container = reactFlowWrapperRef.current;
+      const rfState = storeApi.getState();
+      const domWidth =
+        container?.clientWidth || container?.getBoundingClientRect().width || 0;
+      const domHeight =
+        container?.clientHeight ||
+        container?.getBoundingClientRect().height ||
+        0;
+      const effectiveW = rfState.width > 0 ? rfState.width : domWidth;
+      const effectiveH = rfState.height > 0 ? rfState.height : domHeight;
+
+      const visible = nodes.filter((n) => !n.hidden);
+      const adaptiveOptions = calculateAdaptiveFitOptions(
+        isMobile,
+        isTablet,
+        effectiveW || (isMobile ? 390 : 1200),
+        effectiveH || (isMobile ? 600 : 800),
+        visible.length > 0 ? visible : nodes,
+      );
+
       const fitOptions = isOptionsObject
-        ? { ...DEFAULT_FIT_VIEW_OPTIONS, ...options }
-        : DEFAULT_FIT_VIEW_OPTIONS;
+        ? { ...adaptiveOptions, ...options }
+        : adaptiveOptions;
       return fitViewRef.current(fitOptions);
     },
-    [nodes.length],
+    [nodes, isMobile, isTablet, storeApi],
   );
 
   const treeSessionKey = useMemo(() => {
@@ -933,8 +1017,6 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     [nodes],
   );
 
-  const storeApi = useStoreApi();
-
   // Helper to expand all ancestor nodes so target node is visible on canvas
   const expandAncestors = useCallback(
     (targetNodeId: string) => {
@@ -1052,7 +1134,12 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           initialNodes.find((n: Node) => n.id === latestActiveNode!.id);
         if (target) {
           if (isDraggingNodeRef.current) return;
-          setCenter(target.position.x + 120, target.position.y + 40, {
+          const currentZoom = storeApi.getState().transform[2] || 1;
+          const targetZoom = isMobile
+            ? Math.min(currentZoom, 0.85)
+            : Math.min(currentZoom, 1.15);
+          setCenter(target.position.x + 110, target.position.y + 35, {
+            zoom: Math.max(0.4, targetZoom),
             duration: 350,
           });
         }
@@ -1205,8 +1292,12 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         initialNodes.find((n) => n.id === targetNodeId);
       if (target) {
         if (isDraggingNodeRef.current) return;
-        setCenter(target.position.x + 120, target.position.y + 40, {
-          zoom: 1.25,
+        const currentZoom = storeApi.getState().transform[2] || 1;
+        const targetZoom = isMobile
+          ? Math.min(currentZoom, 0.85)
+          : Math.min(currentZoom, 1.15);
+        setCenter(target.position.x + 110, target.position.y + 35, {
+          zoom: Math.max(0.4, targetZoom),
           duration: 450,
         });
       }
@@ -1342,76 +1433,137 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     <div
       ref={reactFlowWrapperRef}
       tabIndex={-1}
-      className={`relative w-full h-full bg-canvas outline-none [container-type:inline-size] transition-opacity duration-150 ${
+      className={`relative w-full h-full bg-canvas outline-none [container-type:inline-size] transition-opacity duration-150 touch-none select-none ${
         isTreeReady ? "opacity-100" : "opacity-0"
       }`}
     >
       {/* Floating Paused at Breakpoint Top Banner & Action Controls */}
-      {isPausedAtBreakpoint && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-2 rounded-2xl bg-surface-primary/95 backdrop-blur-md border border-amber-500 shadow-2xl animate-in fade-in slide-in-from-top-4 font-sans select-text max-w-[90%]">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span className="relative flex h-3 w-3 items-center justify-center shrink-0">
-              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-500 border border-white dark:border-slate-800 shadow-sm bt-pause-pulse" />
-            </span>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-[9px] font-mono font-bold tracking-wider text-amber-600 dark:text-amber-400 uppercase shrink-0">
-                Execution Paused
-              </span>
-              <span
-                className="text-xs font-mono font-semibold text-text-primary truncate max-w-[280px] min-w-0"
-                title={`Breakpoint at ${pausedNodeName || "Node"}`}
+      {isPausedAtBreakpoint &&
+        (isMobile ? (
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 w-[94%] max-w-sm p-2.5 rounded-xl bg-surface-primary/95 backdrop-blur-md border border-amber-500 shadow-xl animate-in fade-in slide-in-from-top-3 font-sans select-text flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <span className="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 bt-pause-pulse" />
+                </span>
+                <span className="text-[10px] font-mono font-bold tracking-wider text-amber-600 dark:text-amber-400 uppercase shrink-0">
+                  Paused:
+                </span>
+                <span
+                  className="text-xs font-mono font-bold text-text-primary truncate"
+                  title={`Breakpoint at ${pausedNodeName || "Node"}`}
+                >
+                  {pausedNodeName || "Node"}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  if (pausedNodeUid && tree) {
+                    onToggleBreakpoint?.(tree.tree_id, pausedNodeUid);
+                    onResume?.(tree.tree_id);
+                  }
+                }}
+                className="p-1 rounded-lg bg-surface-secondary hover:bg-rose-100 hover:text-rose-700 text-text-muted border border-border-medium shrink-0 active:scale-95 transition-all"
+                title={`Remove Breakpoint from ${pausedNodeName || "this node"} and Continue`}
               >
-                Breakpoint at {pausedNodeName || "Node"}
-              </span>
+                <CircleSlash className="w-3.5 h-3.5 text-rose-500" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+              <button
+                onClick={() => onResume?.(tree?.tree_id)}
+                className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-all cursor-pointer active:scale-95"
+                title="Continue Execution from Breakpoint"
+              >
+                <Play className="w-3 h-3 fill-current" />
+                <span>Continue</span>
+              </button>
+
+              <button
+                onClick={() => onForceSuccess?.(tree?.tree_id)}
+                className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-secondary hover:bg-emerald-50 text-emerald-700 dark:text-emerald-300 font-semibold text-xs border border-border-medium transition-all cursor-pointer active:scale-95"
+                title="Force Node SUCCESS (Fault Injection)"
+              >
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span>Success</span>
+              </button>
+
+              <button
+                onClick={() => onForceFailure?.(tree?.tree_id)}
+                className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-secondary hover:bg-rose-50 text-rose-700 dark:text-rose-300 font-semibold text-xs border border-border-medium transition-all cursor-pointer active:scale-95"
+                title="Force Node FAILURE (Fault Injection)"
+              >
+                <XCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                <span>Failure</span>
+              </button>
             </div>
           </div>
+        ) : (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-surface-primary/95 backdrop-blur-md border border-amber-500 shadow-xl animate-in fade-in slide-in-from-top-3 font-sans select-text max-w-[90%]">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
+                <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 bt-pause-pulse" />
+              </span>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-[9px] font-mono font-bold tracking-wider text-amber-600 dark:text-amber-400 uppercase shrink-0">
+                  Execution Paused
+                </span>
+                <span
+                  className="text-xs font-mono font-semibold text-text-primary truncate max-w-[260px] min-w-0"
+                  title={`Breakpoint at ${pausedNodeName || "Node"}`}
+                >
+                  Breakpoint at {pausedNodeName || "Node"}
+                </span>
+              </div>
+            </div>
 
-          <div className="h-5 w-px bg-border-subtle shrink-0" />
+            <div className="h-5 w-px bg-border-subtle shrink-0" />
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={() => onResume?.(tree?.tree_id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer active:scale-95 border border-emerald-700 shrink-0"
-              title="Continue Execution from Breakpoint"
-            >
-              <Play className="w-3 h-3 fill-current" />
-              <span>Continue </span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => onResume?.(tree?.tree_id)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer active:scale-95 border border-emerald-700 shrink-0"
+                title="Continue Execution from Breakpoint"
+              >
+                <Play className="w-3 h-3 fill-current" />
+                <span>Continue</span>
+              </button>
 
-            <button
-              onClick={() => onForceSuccess?.(tree?.tree_id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-secondary hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-300 text-text-primary font-semibold text-xs border border-border-medium transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
-              title="Force Node SUCCESS (Fault Injection)"
-            >
-              <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-              <span>Success</span>
-            </button>
+              <button
+                onClick={() => onForceSuccess?.(tree?.tree_id)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-secondary hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-300 text-text-primary font-semibold text-xs border border-border-medium transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                title="Force Node SUCCESS (Fault Injection)"
+              >
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span>Success</span>
+              </button>
 
-            <button
-              onClick={() => onForceFailure?.(tree?.tree_id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-secondary hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950 dark:hover:text-rose-300 text-text-primary font-semibold text-xs border border-border-medium transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
-              title="Force Node FAILURE (Fault Injection)"
-            >
-              <XCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
-              <span>Failure</span>
-            </button>
+              <button
+                onClick={() => onForceFailure?.(tree?.tree_id)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-secondary hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950 dark:hover:text-rose-300 text-text-primary font-semibold text-xs border border-border-medium transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                title="Force Node FAILURE (Fault Injection)"
+              >
+                <XCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                <span>Failure</span>
+              </button>
 
-            <button
-              onClick={() => {
-                if (pausedNodeUid && tree) {
-                  onToggleBreakpoint?.(tree.tree_id, pausedNodeUid);
-                  onResume?.(tree.tree_id);
-                }
-              }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-secondary hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950 dark:hover:text-rose-300 text-text-secondary text-xs border border-border-medium transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
-              title={`Remove Breakpoint from ${pausedNodeName || "this node"} and Continue`}
-            >
-              <CircleSlash className="w-3 h-3 text-rose-500" />
-              <span>Remove Breakpoint</span>
-            </button>
+              <button
+                onClick={() => {
+                  if (pausedNodeUid && tree) {
+                    onToggleBreakpoint?.(tree.tree_id, pausedNodeUid);
+                    onResume?.(tree.tree_id);
+                  }
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-secondary hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950 dark:hover:text-rose-300 text-text-secondary text-xs border border-border-medium transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                title={`Remove Breakpoint from ${pausedNodeName || "this node"} and Continue`}
+              >
+                <CircleSlash className="w-3 h-3 text-rose-500" />
+                <span>Remove BP</span>
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        ))}
 
       {/* Top Search & Controls Overlay */}
       <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5 flex-wrap">
@@ -1422,10 +1574,10 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           <Search className="w-3.5 h-3.5 text-text-muted mr-1.5 shrink-0" />
           <input
             type="text"
-            placeholder="Search node..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent text-xs text-text-primary placeholder:text-text-muted outline-none w-48 font-sans"
+            className="bg-transparent text-xs text-text-primary placeholder:text-text-muted outline-none w-24 sm:w-48 font-sans"
           />
         </form>
 
@@ -1450,7 +1602,8 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
               isAutoCenter ? "text-white" : "text-text-primary dark:text-white"
             }
           >
-            Auto-Center
+            <span className="hidden sm:inline">Auto-Center</span>
+            <span className="sm:hidden">Auto</span>
           </span>
         </button>
 
@@ -1521,7 +1674,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           <ControlButton
             onClick={() => performExplicitFitView()}
             title="Fit View to Screen"
-            className="!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !text-text-primary hover:!text-accent-primary !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all !w-6 !h-6 !m-0"
+            className={`!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !text-text-primary hover:!text-accent-primary !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all ${isMobile || isTablet ? "!w-8 !h-8" : "!w-6 !h-6"} !m-0`}
           >
             <span className="text-sm font-bold text-text-primary leading-none">
               ⛶
@@ -1539,7 +1692,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                 ? "Switch to Vertical Layout"
                 : "Switch to Horizontal Layout"
             }
-            className="!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all !w-6 !h-6 !m-0"
+            className={`!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all ${isMobile || isTablet ? "!w-8 !h-8" : "!w-6 !h-6"} !m-0`}
           >
             {activeOrientation === "horizontal" ? (
               <img
@@ -1567,7 +1720,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                 ? "Switch to Orthogonal Paths"
                 : "Switch to Curved Paths"
             }
-            className="!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all !w-6 !h-6 !m-0"
+            className={`!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all ${isMobile || isTablet ? "!w-8 !h-8" : "!w-6 !h-6"} !m-0`}
           >
             <Waypoints className="w-3.5 h-3.5 text-text-primary" />
           </ControlButton>
@@ -1579,7 +1732,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                 ? "Locked: Nodes cannot be moved"
                 : "Unlocked: Nodes can be freely dragged"
             }
-            className="!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all !w-6 !h-6 !m-0"
+            className={`!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all ${isMobile || isTablet ? "!w-8 !h-8" : "!w-6 !h-6"} !m-0`}
           >
             {isLocked ? (
               <span className="material-icons text-[18px] text-text-primary select-none leading-none">
@@ -1595,7 +1748,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           <ControlButton
             onClick={handleResetLayout}
             title="Reset Layout — Restore original node positions"
-            className="!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all !w-6 !h-6 !m-0"
+            className={`!bg-surface-primary hover:!bg-surface-hover !border !border-border-medium hover:!border-border-strong !flex !items-center !justify-center cursor-pointer !rounded-lg active:scale-95 !shadow-2xs transition-all ${isMobile || isTablet ? "!w-8 !h-8" : "!w-6 !h-6"} !m-0`}
           >
             <LayoutGrid className="w-3.5 h-3.5 text-accent-primary" />
           </ControlButton>

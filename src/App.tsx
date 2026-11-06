@@ -1094,6 +1094,7 @@ export const App: React.FC = () => {
   } | null>(null);
   const [isBlackboardOpen, setIsBlackboardOpen] = useState(false);
   const [isNav2PromptOpen, setIsNav2PromptOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [actionWarning, setActionWarning] = useState<string | null>(null);
 
   const treeSessionsRef = useRef<Map<string, TreeSessionPersistenceState>>(
@@ -3606,7 +3607,7 @@ export const App: React.FC = () => {
   );
 
   return (
-    <div className="w-screen h-screen flex bg-app text-text-primary overflow-hidden font-sans select-text">
+    <div className="w-screen h-screen h-[100dvh] max-h-[100dvh] flex bg-app text-text-primary overflow-hidden font-sans select-text pb-[env(safe-area-inset-bottom)]">
       {actionWarning && (
         <div
           className="fixed top-4 right-4 z-[100] flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 shadow-lg dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
@@ -3618,6 +3619,8 @@ export const App: React.FC = () => {
       )}
       {/* Left Sidebar for Multi-Tree Management (Monitor) and Node Library (Editor) - Full Window Height */}
       <Sidebar
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
         appMode={appMode}
         onModeChange={setAppMode}
         isConnected={isConnected}
@@ -3658,9 +3661,11 @@ export const App: React.FC = () => {
       />
 
       {/* Main Right Area: Top Header Bar + Workspace */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden relative">
         {/* Top Header Bar */}
         <Header
+          onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
+          isMobileSidebarOpen={isMobileSidebarOpen}
           appMode={appMode}
           onModeChange={setAppMode}
           isConnected={isConnected}
@@ -3718,7 +3723,7 @@ export const App: React.FC = () => {
         />
 
         {/* Workspace Area: XML Editor or Monitor */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden relative">
           {appMode === "editor" ? (
             <div className="flex-1 w-full h-full overflow-hidden relative">
               <BTEditor
@@ -3929,30 +3934,11 @@ export const App: React.FC = () => {
                                 ? `Tree '${activeTree.display_name ?? activeTree.tree_name}' is currently hidden.`
                                 : "No active Behavior Tree selected."}
                             </div>
-                            {/* <div className="text-xs text-text-muted not-italic mb-3 font-sans">
-                        Select or check a tree in the left sidebar, or load an XML file directly:
-                      </div>
-                      <label className="px-3.5 py-1.5 bg-accent-primary hover:bg-accent-hover text-white rounded-lg text-xs font-semibold not-italic transition-all cursor-pointer flex items-center gap-2 shadow-xs active:scale-95 border border-accent-border">
-                        <FileCode className="w-3.5 h-3.5" />
-                        <span>Load Tree (XML File)</span>
-                        <input
-                          type="file"
-                          accept=".xml"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (ev) => {
-                                const content = ev.target?.result as string;
-                                if (content) handleLoadTreeXml(content, file.name);
-                              };
-                              reader.readAsText(file);
-                              e.target.value = '';
-                            }
-                          }}
-                        />
-                      </label> */}
+                            <p className="text-xs text-text-muted not-italic font-sans">
+                              {activeTree && activeTree.visible === false
+                                ? "Check the box next to this tree in the sidebar to display it."
+                                : "Select or check a tree in the left sidebar to display it."}
+                            </p>
                           </div>
                         )}
                       </div>

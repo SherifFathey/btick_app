@@ -31,9 +31,19 @@ except ImportError:
     pass
 
 try:
-    from common import StandaloneWebSocketServer, SPAHTTPHandler
+    from common import (
+        StandaloneWebSocketServer,
+        SPAHTTPHandler,
+        get_local_lan_ip,
+        apply_command_to_tree,
+    )
 except ImportError:
-    from .common import StandaloneWebSocketServer, SPAHTTPHandler
+    from .common import (
+        StandaloneWebSocketServer,
+        SPAHTTPHandler,
+        get_local_lan_ip,
+        apply_command_to_tree,
+    )
 
 
 class BTickROS2Bridge:
@@ -392,6 +402,13 @@ def main():
     parser.add_argument(
         "--dist-dir", type=str, default="", help="Path to built web app dist folder"
     )
+    parser.add_argument(
+        "--host",
+        "--lan-ip",
+        dest="host",
+        default="",
+        help="Custom IP address or hostname to advertise (default: auto-detected LAN IP)",
+    )
     args = parser.parse_args()
 
     # Find dist directory
@@ -403,16 +420,22 @@ def main():
         if os.path.exists(candidate):
             dist_dir = candidate
 
+    lan_ip = args.host.strip() if args.host else get_local_lan_ip()
     print("=" * 66)
     print(" 🌲 BTICK DEDICATED ROS 2 DDS BRIDGE")
     print("=" * 66)
-    print(f" • WebSocket Broadcast : ws://0.0.0.0:{args.ws_port}")
     if args.http_port > 0 and dist_dir:
-        print(f" • Web App Browser URL : http://localhost:{args.http_port}")
-        print(f" • Static Assets Path  : {dist_dir}")
-    print(" • ROS 2 Discovery     : /btick/tree_discovery")
-    print(" • ROS 2 Transitions   : /btick/tree_transitions")
-    print(" • ROS 2 Commands      : /btick/command_in")
+        print(f" • Local Access URL     : http://localhost:{args.http_port}")
+        if lan_ip and lan_ip != "127.0.0.1":
+            print(
+                f" • Mobile / Network URL : http://{lan_ip}:{args.http_port}  (Open on phone)"
+            )
+        print(f" • Static Assets Path   : {dist_dir}")
+    else:
+        print(f" • WebSocket Port       : {args.ws_port}")
+    print(" • ROS 2 Discovery      : /btick/tree_discovery")
+    print(" • ROS 2 Transitions    : /btick/tree_transitions")
+    print(" • ROS 2 Commands       : /btick/command_in")
     print("=" * 66)
 
     bridge_server = None
@@ -428,7 +451,27 @@ def main():
             msg = json.loads(msg_str)
             msg_type = msg.get("type")
             if msg_type in ("command", "send_command") and "data" in msg:
-                bridge_server.send_command(msg["data"])
+                cmd = msg["data"]
+                action = cmd.get("action")
+                tree_id = cmd.get("tree_id")
+                if bridge_server:
+                    if tree_id and tree_id in bridge_server.trees:
+                        apply_command_to_tree(bridge_server.trees[tree_id], cmd)
+                    elif action in ("clear_all_breakpoints", "clear_all_faults"):
+                        for t in bridge_server.trees.values():
+                            apply_command_to_tree(t, cmd)
+                    ws_server.broadcast(
+                        json.dumps(
+                            {
+                                "type": "sync_action",
+                                "action": action,
+                                "data": cmd,
+                                "source": "btick",
+                                "protocol": "btick",
+                            }
+                        )
+                    )
+                    bridge_server.send_command(cmd)
             elif msg_type in ("get_trees", "get_tree", "discover", "request_tree"):
                 for t in bridge_server.trees.values():
                     ws_server.broadcast(json.dumps(t))
@@ -457,6 +500,9 @@ def main():
             directory=dist_dir,
             status_provider=lambda: {
                 "source": "btick",
+                "ws_port": args.ws_port,
+                "http_port": args.http_port,
+                "lan_ip": lan_ip,
                 "trees": list(bridge_server.trees.keys()),
             },
             **kw,

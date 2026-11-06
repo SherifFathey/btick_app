@@ -71,10 +71,10 @@ export const Groot2DebugPanel: React.FC<Groot2DebugPanelProps> = ({
                   const treeId = tree?.tree_id || "MainTree";
                   onResume?.(treeId);
                 }}
-                className="flex flex-col items-center justify-center p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] cursor-pointer transition-all border border-emerald-700 shadow-xs active:scale-95"
+                className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer transition-all border border-emerald-700 shadow-xs active:scale-95"
                 title="Continue real node execution"
               >
-                <Play className="w-3.5 h-3.5 fill-current mb-0.5" />
+                <Play className="w-3.5 h-3.5 fill-current shrink-0" />
                 <span>Continue</span>
               </button>
               <button
@@ -82,10 +82,10 @@ export const Groot2DebugPanel: React.FC<Groot2DebugPanelProps> = ({
                   const treeId = tree?.tree_id || "MainTree";
                   onForceSuccess?.(treeId);
                 }}
-                className="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-primary hover:bg-surface-hover text-text-primary font-semibold text-[10px] border border-border-medium cursor-pointer transition-all shadow-2xs active:scale-95"
+                className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-primary hover:bg-surface-hover text-text-primary font-semibold text-xs border border-border-medium cursor-pointer transition-all shadow-2xs active:scale-95"
                 title="Force SUCCESS (Fault Injection)"
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mb-0.5" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Success</span>
               </button>
               <button
@@ -93,10 +93,10 @@ export const Groot2DebugPanel: React.FC<Groot2DebugPanelProps> = ({
                   const treeId = tree?.tree_id || "MainTree";
                   onForceFailure?.(treeId);
                 }}
-                className="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-primary hover:bg-surface-hover text-text-primary font-semibold text-[10px] border border-border-medium cursor-pointer transition-all shadow-2xs active:scale-95"
+                className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-primary hover:bg-surface-hover text-text-primary font-semibold text-xs border border-border-medium cursor-pointer transition-all shadow-2xs active:scale-95"
                 title="Force FAILURE (Fault Injection)"
               >
-                <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 mb-0.5" />
+                <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
                 <span>Failure</span>
               </button>
             </div>

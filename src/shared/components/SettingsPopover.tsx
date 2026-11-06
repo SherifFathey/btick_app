@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Settings, Sun, Moon, Palette, Activity, X } from "lucide-react";
+import {
+  Settings,
+  Sun,
+  Moon,
+  Palette,
+  Activity,
+  X,
+  Smartphone,
+  Copy,
+  Check,
+  ExternalLink,
+} from "lucide-react";
 import { LiveStatusDisplayMode } from "../../monitor/protocols/types";
+import { ros2Service } from "../../monitor/services/ros2Service";
+import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
 import {
   getStoredTheme,
   setStoredTheme,
@@ -14,6 +27,8 @@ export interface SettingsPopoverProps {
   liveStatusDisplayMode?: LiveStatusDisplayMode;
   onLiveStatusDisplayModeChange?: (mode: LiveStatusDisplayMode) => void;
   showLiveMonitoring?: boolean;
+  onOpenMobileAccess?: () => void;
+  isConnected?: boolean;
 }
 
 export const SettingsPopover: React.FC<SettingsPopoverProps> = ({
@@ -22,10 +37,26 @@ export const SettingsPopover: React.FC<SettingsPopoverProps> = ({
   liveStatusDisplayMode = "current",
   onLiveStatusDisplayModeChange,
   showLiveMonitoring = true,
+  onOpenMobileAccess,
+  isConnected = false,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(getStoredTheme);
   const resolvedTheme = getResolvedTheme(themeMode);
+  const { isMobile } = useResponsiveLayout();
+  const [copiedLanUrl, setCopiedLanUrl] = useState(false);
+
+  const mobileUrl = ros2Service.getLanUrl();
+  const lanIp = ros2Service.getLanIp();
+
+  const handleCopyLanUrl = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(mobileUrl).then(() => {
+        setCopiedLanUrl(true);
+        setTimeout(() => setCopiedLanUrl(false), 2000);
+      });
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -139,7 +170,70 @@ export const SettingsPopover: React.FC<SettingsPopoverProps> = ({
         </div>
       </div>
 
-      {/* Section 2: Live Monitoring */}
+      {/* Section 2: Mobile Access (Only shown on Desktop/Tablet, hidden on mobile) */}
+      {!isMobile && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted uppercase tracking-wider font-mono">
+              <Smartphone className="w-3 h-3 text-accent-primary" />
+              <span>Mobile & Network Access</span>
+            </div>
+            <span
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium border ${
+                isConnected
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}
+              />
+              <span>{isConnected ? "WS Live" : "Offline"}</span>
+            </span>
+          </div>
+
+          <div className="bg-surface-secondary/70 border border-border-subtle rounded-xl p-2.5 space-y-2">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-semibold text-text-primary">LAN Link</span>
+              <span className="font-mono text-[10px] text-text-muted">
+                {lanIp}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-surface-primary border border-border-subtle rounded-lg px-2 py-1">
+              <span className="font-mono text-[11px] text-accent-primary font-semibold truncate flex-1 select-all">
+                {mobileUrl}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyLanUrl}
+                className="p-1 rounded bg-surface-secondary hover:bg-surface-hover border border-border-subtle text-text-muted hover:text-text-primary transition-all cursor-pointer active:scale-95 shrink-0"
+                title="Copy Mobile Access URL"
+              >
+                {copiedLanUrl ? (
+                  <Check className="w-3 h-3 text-emerald-500" />
+                ) : (
+                  <Copy className="w-3 h-3" />
+                )}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenMobileAccess?.();
+              }}
+              className="w-full flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-lg border border-border-medium bg-surface-primary hover:bg-surface-hover text-text-primary text-[11px] font-semibold transition-all cursor-pointer shadow-2xs active:scale-95"
+            >
+              <ExternalLink className="w-3 h-3 text-accent-primary" />
+              <span>Full Details & QR Code</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Section 3: Live Monitoring */}
       {showLiveMonitoring && (
         <div className="space-y-2">
           <div>

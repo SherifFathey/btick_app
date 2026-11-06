@@ -20,6 +20,7 @@ import {
   startNewExecutionCycle,
   findMatchingLogicalTreeKey,
 } from "../session/sessionManager";
+import { syncBreakpointsAndFaultsFromTree } from "../syncActionHandler";
 
 export class Groot2Handler implements IProtocolHandler {
   public protocol = "groot2" as const;
@@ -218,6 +219,15 @@ export class Groot2Handler implements IProtocolHandler {
         nextTreesMap.delete(matchedExistingKey);
       }
       nextTreesMap.set(treeId, treeToSave);
+
+      // Synchronize active breakpoints and fault rules from the tree nodes
+      syncBreakpointsAndFaultsFromTree(
+        treeId,
+        mergedNodes,
+        nextBreakpoints,
+        nextBreakpointOnce,
+        nextFaultRules,
+      );
 
       const nextSelectedTreeId =
         workingState.selectedTreeId &&
@@ -433,17 +443,7 @@ export class Groot2Handler implements IProtocolHandler {
         nextPausedTreeId = event.tree_id || targetTreeId;
         nextPausedUid = event.uid;
         nextPausedName = event.node_name;
-        if (
-          !workingState.selectedTreeId ||
-          workingState.selectedTreeId === (event.tree_id || targetTreeId)
-        ) {
-          const matchedNode = targetTree.nodes.find((n) =>
-            isMatchNode(n, event),
-          );
-          nextSelectedNodeId = matchedNode
-            ? matchedNode.id
-            : event.node_id || workingState.selectedNodeId;
-        }
+        // Do not force selectedNodeId on pause so Node Information Panel does not pop up automatically
         nextIsPaused = true;
       } else if (
         nextPausedTreeId === targetTreeId &&

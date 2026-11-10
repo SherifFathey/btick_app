@@ -14,6 +14,7 @@ import sys
 import json
 import time
 import base64
+import collections
 import struct
 import socket
 import select
@@ -653,7 +654,85 @@ def parse_xml_to_bt_model(xml_str: str, tree_name_override: str = "") -> dict:
 # ==============================================================================
 # Standalone RFC 6455 Pure-Python WebSocket Server
 # ==============================================================================
+class _ClientConnection:
+    """Outgoing side of one WebSocket client: a bounded queue of encoded
+    frames drained by a dedicated writer thread.
+
+    Producers (e.g. the ROS 2 callback thread via broadcast()) only enqueue
+    and never block on the socket, so one slow or frozen client (a
+    background/throttled browser tab, a stalled network) cannot stall the
+    bridge or the other clients. A client whose backlog exceeds
+    ``max_pending_bytes`` is disconnected: dropping individual frames would
+    silently corrupt its view of the tree, while a reconnect re-syncs it with
+    a full snapshot.
+    """
+
+    def __init__(self, sock: socket.socket, max_pending_bytes: int):
+        self.sock = sock
+        self.max_pending_bytes = max_pending_bytes
+        self.frames = collections.deque()
+        self.pending_bytes = 0
+        self.closed = False
+        self.cond = threading.Condition()
+        self.writer = threading.Thread(target=self._write_loop, daemon=True)
+        self.writer.start()
+
+    def enqueue(self, frame: bytes) -> bool:
+        """Queues a frame; returns False if the client is closed or was
+        disconnected because its backlog overflowed."""
+        with self.cond:
+            if self.closed:
+                return False
+            if self.pending_bytes + len(frame) > self.max_pending_bytes:
+                print(
+                    f"[WebSocket] Client backlog exceeded "
+                    f"{self.max_pending_bytes} bytes; disconnecting slow client",
+                    file=sys.stderr,
+                )
+                self._close_locked()
+                return False
+            self.frames.append(frame)
+            self.pending_bytes += len(frame)
+            self.cond.notify()
+            return True
+
+    def close(self):
+        with self.cond:
+            self._close_locked()
+
+    def _close_locked(self):
+        if self.closed:
+            return
+        self.closed = True
+        self.frames.clear()
+        self.pending_bytes = 0
+        self.cond.notify()
+        try:
+            # Unblocks both the writer (sendall) and the reader (recv).
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except Exception:
+            pass
+
+    def _write_loop(self):
+        while True:
+            with self.cond:
+                while not self.frames and not self.closed:
+                    self.cond.wait()
+                if self.closed:
+                    return
+                frame = self.frames.popleft()
+                self.pending_bytes -= len(frame)
+            try:
+                self.sock.sendall(frame)
+            except Exception:
+                self.close()
+                return
+
+
 class StandaloneWebSocketServer:
+    # Upper bound for the per-client send backlog (a few full tree snapshots).
+    MAX_PENDING_BYTES = 16 * 1024 * 1024
+
     def __init__(
         self,
         host: str = "0.0.0.0",
@@ -665,7 +744,7 @@ class StandaloneWebSocketServer:
         self.port = port
         self.on_client_message = on_client_message
         self.on_client_connect = on_client_connect
-        self.clients = set()
+        self.clients = {}  # socket -> _ClientConnection
         self.lock = threading.Lock()
         self.server_socket = None
         self.running = False
@@ -725,9 +804,13 @@ class StandaloneWebSocketServer:
                 f"Sec-WebSocket-Accept: {accept_key}\r\n\r\n"
             )
             sock.sendall(handshake.encode())
+            try:
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            except Exception:
+                pass
 
             with self.lock:
-                self.clients.add(sock)
+                self.clients[sock] = _ClientConnection(sock, self.MAX_PENDING_BYTES)
 
             if self.on_client_connect:
                 try:
@@ -749,7 +832,7 @@ class StandaloneWebSocketServer:
                 if opcode == 8:  # Close frame
                     break
                 elif opcode == 9:  # Ping
-                    sock.sendall(bytes([0x8A, 0x00]))  # Pong
+                    self._enqueue_frame(sock, bytes([0x8A, 0x00]))  # Pong
                     continue
 
                 if payload_len == 126:
@@ -786,40 +869,54 @@ class StandaloneWebSocketServer:
             pass
         finally:
             with self.lock:
-                self.clients.discard(sock)
+                conn = self.clients.pop(sock, None)
+            if conn:
+                conn.close()
             try:
                 sock.close()
             except Exception:
                 pass
 
+    @staticmethod
+    def _encode_text_frame(message: str) -> bytes:
+        payload = message.encode("utf-8")
+        length = len(payload)
+        frame = bytearray([0x81])
+        if length <= 125:
+            frame.append(length)
+        elif length <= 65535:
+            frame.append(126)
+            frame.extend(struct.pack("!H", length))
+        else:
+            frame.append(127)
+            frame.extend(struct.pack("!Q", length))
+        frame.extend(payload)
+        return bytes(frame)
+
+    def _enqueue_frame(self, sock: socket.socket, frame: bytes):
+        with self.lock:
+            conn = self.clients.get(sock)
+        if conn:
+            conn.enqueue(frame)
+
     def send_to_sock(self, sock: socket.socket, message: str):
+        """Queues a text message for one client (never blocks on the socket)."""
         try:
-            payload = message.encode("utf-8")
-            length = len(payload)
-            frame = bytearray([0x81])
-            if length <= 125:
-                frame.append(length)
-            elif length <= 65535:
-                frame.append(126)
-                frame.extend(struct.pack("!H", length))
-            else:
-                frame.append(127)
-                frame.extend(struct.pack("!Q", length))
-            frame.extend(payload)
-            sock.sendall(frame)
+            self._enqueue_frame(sock, self._encode_text_frame(message))
         except Exception:
             pass
 
     def broadcast(self, message: str):
+        """Queues a text message for all clients. The frame is encoded once and
+        the call never blocks on a socket, so it is safe to call from the ROS 2
+        callback thread."""
+        frame = self._encode_text_frame(message)
         with self.lock:
-            dead_socks = []
-            for client in list(self.clients):
-                try:
-                    self.send_to_sock(client, message)
-                except Exception:
-                    dead_socks.append(client)
-            for d in dead_socks:
-                self.clients.discard(d)
+            conns = list(self.clients.values())
+        for conn in conns:
+            # A client that overflowed its backlog is closed by enqueue(); its
+            # reader thread then removes it from self.clients.
+            conn.enqueue(frame)
 
     def stop(self):
         self.running = False
@@ -828,6 +925,10 @@ class StandaloneWebSocketServer:
                 self.server_socket.close()
             except Exception:
                 pass
+        with self.lock:
+            conns = list(self.clients.values())
+        for conn in conns:
+            conn.close()
 
 
 # ==============================================================================

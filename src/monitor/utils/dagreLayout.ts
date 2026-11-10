@@ -90,6 +90,39 @@ export const computeExecutionAwareFailurePath = (
 
 export const NODE_WIDTH = 240;
 
+// Edge appearance derived from the status of its child (target) node. Shared
+// by the layout and by live status updates, which restyle edges without
+// re-running the layout.
+export const getEdgeStatusStyle = (
+  childNode: BTNodeModel | undefined,
+): { animated: boolean; style: { stroke: string; strokeWidth: number } } => {
+  const childStatus = childNode ? childNode.status : "IDLE";
+  const isChildPaused = Boolean(
+    childNode &&
+    (childNode.is_paused ||
+      (childStatus as string) === "PAUSED" ||
+      (childStatus as string) === "PAUSED_AT_BREAKPOINT"),
+  );
+
+  let strokeColor = "#475569";
+  let strokeWidth = 2;
+  let animated = false;
+
+  if (childStatus === "FAILURE") {
+    strokeColor = "#ef4444";
+    strokeWidth = 2.5;
+  } else if (childStatus === "SUCCESS") {
+    strokeColor = "#22c55e";
+    strokeWidth = 2.5;
+  } else if (childStatus === "RUNNING" || isChildPaused) {
+    strokeColor = "#f59e0b";
+    strokeWidth = 2.5;
+    animated = true;
+  }
+
+  return { animated, style: { stroke: strokeColor, strokeWidth } };
+};
+
 export const calculateNodeHeight = (
   node: BTNodeModel,
   isCardExpanded: boolean = false,
@@ -556,29 +589,7 @@ export const generateGraphElements = (
       node.children_ids.forEach((childId) => {
         if (visibleNodes.has(childId)) {
           const childNode = nodeMap.get(childId);
-          const childStatus = childNode ? childNode.status : "IDLE";
-          const isChildPaused = Boolean(
-            childNode &&
-            (childNode.is_paused ||
-              (childStatus as string) === "PAUSED" ||
-              (childStatus as string) === "PAUSED_AT_BREAKPOINT"),
-          );
-
-          let strokeColor = "#475569";
-          let strokeWidth = 2;
-          let animated = false;
-
-          if (childStatus === "FAILURE") {
-            strokeColor = "#ef4444";
-            strokeWidth = 2.5;
-          } else if (childStatus === "SUCCESS") {
-            strokeColor = "#22c55e";
-            strokeWidth = 2.5;
-          } else if (childStatus === "RUNNING" || isChildPaused) {
-            strokeColor = "#f59e0b";
-            strokeWidth = 2.5;
-            animated = true;
-          }
+          const { animated, style } = getEdgeStatusStyle(childNode);
 
           initialEdges.push({
             id: `e-${node.id}-${childId}`,
@@ -589,10 +600,7 @@ export const generateGraphElements = (
             type: "btMonitorEdge",
             animated: animated,
             hidden: hiddenNodes.has(node.id) || hiddenNodes.has(childId),
-            style: {
-              stroke: strokeColor,
-              strokeWidth: strokeWidth,
-            },
+            style,
           });
         }
       });

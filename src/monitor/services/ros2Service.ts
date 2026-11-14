@@ -35,7 +35,7 @@ class ROS2Service {
     if (typeof window !== "undefined" && (window as any).electronAPI) {
       (window as any).electronAPI.onROS2Event((data: any) => {
         if (data) {
-          this.notifyMessage(data);
+          this.enqueueMessage(data);
           if (!this.isConnected) {
             this.isConnected = true;
             this.notifyStatus(true);
@@ -224,7 +224,7 @@ class ROS2Service {
         try {
           const data = JSON.parse(event.data);
           if (data) {
-            this.notifyMessage(data);
+            this.enqueueMessage(data);
             if (!this.isConnected) {
               this.isConnected = true;
               this.notifyStatus(true);
@@ -288,6 +288,62 @@ class ROS2Service {
         handler(data);
       } catch (err) {}
     });
+  }
+
+  // Incoming bridge messages are coalesced and delivered in batches: at most
+  // once per animation frame and at most every MIN_FLUSH_INTERVAL_MS. Every
+  // delivered message usually ends in a React state update; dispatching them
+  // all from one task lets React batch them into a single render instead of
+  // re-rendering the whole app per message (reactive trees easily produce
+  // 1000+ transitions/s). Hidden tabs (no animation frames) are still
+  // drained by the timer so the bridge never has to buffer for them.
+  private static readonly MIN_FLUSH_INTERVAL_MS = 100;
+  private pendingMessages: any[] = [];
+  private flushScheduled = false;
+  private lastFlushAt = 0;
+  private flushRafId: number | null = null;
+  private flushTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  private enqueueMessage(data: any) {
+    this.pendingMessages.push(data);
+    if (this.flushScheduled) return;
+    this.flushScheduled = true;
+    const wait = Math.max(
+      0,
+      this.lastFlushAt + ROS2Service.MIN_FLUSH_INTERVAL_MS - Date.now(),
+    );
+    this.flushTimeoutId = setTimeout(() => {
+      this.flushTimeoutId = null;
+      if (
+        typeof requestAnimationFrame === "function" &&
+        typeof document !== "undefined" &&
+        !document.hidden
+      ) {
+        this.flushRafId = requestAnimationFrame(() => this.flushMessages());
+        // In case the tab gets hidden before the frame fires.
+        this.flushTimeoutId = setTimeout(() => this.flushMessages(), 250);
+      } else {
+        this.flushMessages();
+      }
+    }, wait);
+  }
+
+  private flushMessages() {
+    if (this.flushRafId !== null) {
+      cancelAnimationFrame(this.flushRafId);
+      this.flushRafId = null;
+    }
+    if (this.flushTimeoutId !== null) {
+      clearTimeout(this.flushTimeoutId);
+      this.flushTimeoutId = null;
+    }
+    this.flushScheduled = false;
+    this.lastFlushAt = Date.now();
+    const batch = this.pendingMessages;
+    this.pendingMessages = [];
+    for (const data of batch) {
+      this.notifyMessage(data);
+    }
   }
 
   sendCommand(command: any) {

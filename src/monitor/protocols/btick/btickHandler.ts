@@ -5,6 +5,7 @@ import {
 } from "../types";
 import {
   BTNodeModel,
+  BTTreeModel,
   NodeStatus,
   TreeStatus,
   TransitionEvent,
@@ -23,6 +24,52 @@ import {
 } from "../session/sessionManager";
 import { BTickSessionState } from "./btickState";
 import { syncBreakpointsAndFaultsFromTree } from "../syncActionHandler";
+
+// Structural equality for plain JSON-like values; keys whose value is
+// undefined are treated as absent (as in JSON).
+const isSameValue = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const bArr = b as unknown[];
+    return a.length === bArr.length && a.every((v, i) => isSameValue(v, bArr[i]));
+  }
+  const aObj = a as Record<string, unknown>;
+  const bObj = b as Record<string, unknown>;
+  const aKeys = Object.keys(aObj).filter((k) => aObj[k] !== undefined);
+  const bKeys = Object.keys(bObj).filter((k) => bObj[k] !== undefined);
+  return (
+    aKeys.length === bKeys.length &&
+    aKeys.every((k) => isSameValue(aObj[k], bObj[k]))
+  );
+};
+
+// A BTick monitor republishes its full tree snapshot (on reconnects, on
+// get_tree and periodically). When the snapshot carries nothing new, keep the
+// existing node objects (and the existing tree object when nothing changed at
+// all) so memoized consumers such as the graph do not rebuild every node.
+const reuseUnchangedTree = (
+  next: BTTreeModel,
+  prev: BTTreeModel,
+): BTTreeModel => {
+  const prevById = new Map(prev.nodes.map((n) => [n.id, n]));
+  let sameNodes = next.nodes.length === prev.nodes.length;
+  const nodes = next.nodes.map((n, i) => {
+    const old = prevById.get(n.id);
+    if (old && isSameValue(n, old)) {
+      if (prev.nodes[i] !== old) sameNodes = false;
+      return old;
+    }
+    sameNodes = false;
+    return n;
+  });
+  if (!sameNodes) return { ...next, nodes };
+  const unchanged = (Object.keys(next) as (keyof BTTreeModel)[]).every(
+    (k) => k === "nodes" || isSameValue(next[k], prev[k]),
+  );
+  return unchanged ? prev : { ...next, nodes: prev.nodes };
+};
 
 export class BTickHandler implements IProtocolHandler {
   public protocol = "btick" as const;
@@ -211,7 +258,7 @@ export class BTickHandler implements IProtocolHandler {
         calculatedTreeStatus = rawTree.status || "IDLE";
       }
 
-      const treeToSave = attachRootCard({
+      const mergedTree = attachRootCard({
         type: "tree_created",
         tree_id: treeId,
         tree_name: rawTree.tree_name || treeId,
@@ -234,6 +281,10 @@ export class BTickHandler implements IProtocolHandler {
         source: "btick",
         protocol: "btick",
       });
+      const treeToSave =
+        existingTree && !isRestart && matchedExistingKey === treeId
+          ? reuseUnchangedTree(mergedTree, existingTree)
+          : mergedTree;
 
       if (matchedExistingKey && matchedExistingKey !== treeId) {
         nextTreesMap.delete(matchedExistingKey);
@@ -762,7 +813,7 @@ export class BTickHandler implements IProtocolHandler {
             return pd;
           });
 
-          return {
+          const nextNode: BTNodeModel = {
             ...n,
             status: nextStatus,
             last_result: nextLastResult,
@@ -785,6 +836,10 @@ export class BTickHandler implements IProtocolHandler {
             output_ports_values: nextOutputPortsValues,
             port_details: nextPortDetails,
           };
+          // Reactive trees re-tick many nodes without changing what is shown
+          // (e.g. IDLE after FAILURE); keep the node object in that case so
+          // consumers can skip it.
+          return isSameValue(nextNode, n) ? n : nextNode;
         }
 
         if (isNodePausedCurrently && nextIsPaused) {
@@ -858,13 +913,13 @@ export class BTickHandler implements IProtocolHandler {
         ) {
           return n;
         }
+        // Keep the node object when its status does not change so that
+        // memoized consumers (graph nodes) can skip unchanged nodes.
         if (n.type === "Root" || n.name === "Root") {
-          return {
-            ...n,
-            status: (nextTreeStatus === "RUNNING"
-              ? "RUNNING"
-              : nextTreeStatus) as NodeStatus,
-          };
+          const rootStatus = (
+            nextTreeStatus === "RUNNING" ? "RUNNING" : nextTreeStatus
+          ) as NodeStatus;
+          return n.status === rootStatus ? n : { ...n, status: rootStatus };
         }
         if (
           (nextTreeStatus === "FAILURE" || nextTreeStatus === "SUCCESS") &&
@@ -879,14 +934,28 @@ export class BTickHandler implements IProtocolHandler {
         return n;
       });
 
-      nextMap.set(targetTreeId, {
-        ...targetTree,
-        blackboard: event.blackboard
-          ? { ...(targetTree.blackboard || {}), ...event.blackboard }
-          : targetTree.blackboard,
-        status: nextTreeStatus,
-        nodes: finalNodes,
-      });
+      // Keep the tree object when the event changed nothing visible (only
+      // the event log grows), so that the graph does not re-process it.
+      const nodesChanged =
+        finalNodes.length !== targetTree.nodes.length ||
+        finalNodes.some((n, i) => n !== targetTree.nodes[i]);
+      const hasBlackboardUpdate = Boolean(
+        event.blackboard && Object.keys(event.blackboard).length > 0,
+      );
+      if (
+        nodesChanged ||
+        hasBlackboardUpdate ||
+        nextTreeStatus !== targetTree.status
+      ) {
+        nextMap.set(targetTreeId, {
+          ...targetTree,
+          blackboard: hasBlackboardUpdate
+            ? { ...(targetTree.blackboard || {}), ...event.blackboard }
+            : targetTree.blackboard,
+          status: nextTreeStatus,
+          nodes: nodesChanged ? finalNodes : targetTree.nodes,
+        });
+      }
 
       const nextEvents = [event, ...state.events].slice(
         0,

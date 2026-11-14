@@ -1302,11 +1302,24 @@ export const App: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [actionWarning]);
 
-  // 1-second watchdog tick to ensure stale heartbeats (> 3.5s) immediately transition to DISCONNECTED
+  // 1-second watchdog tick to ensure stale heartbeats (> 3.5s) immediately transition to DISCONNECTED.
+  // The tick only re-renders the app when an effective connection status
+  // actually changes: an unconditional state update every second re-rendered
+  // the whole UI, including the (expensive) graph, once per second.
   const [watchdogTick, setWatchdogTick] = useState<number>(() => Date.now());
+  const effectiveStatusFnRef = useRef<
+    ((protocol: ProtocolSource) => ProtocolConnectionStatus) | null
+  >(null);
+  const renderedStatusSigRef = useRef<string>("");
   useEffect(() => {
+    const protocols: ProtocolSource[] = ["btick", "groot2", "nav2"];
     const timer = setInterval(() => {
-      setWatchdogTick(Date.now());
+      const statusFn = effectiveStatusFnRef.current;
+      if (!statusFn) return;
+      const sig = protocols.map((p) => statusFn(p)).join("|");
+      if (sig !== renderedStatusSigRef.current) {
+        setWatchdogTick(Date.now());
+      }
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -1384,6 +1397,14 @@ export const App: React.FC = () => {
     }),
     [getProtocolEffectiveStatus],
   );
+  effectiveStatusFnRef.current = getProtocolEffectiveStatus;
+  useEffect(() => {
+    renderedStatusSigRef.current = [
+      protocolStatuses.btick,
+      protocolStatuses.groot2,
+      protocolStatuses.nav2,
+    ].join("|");
+  }, [protocolStatuses]);
 
   const effectiveConnectionStatus = protocolStatuses[activeProtocol];
 
@@ -1411,14 +1432,18 @@ export const App: React.FC = () => {
     [],
   );
 
+  // Reads the latest sessions through a ref so that the command handlers
+  // built on top of it (breakpoints, port edits, ...) keep a stable identity.
+  // Depending on `sessions` directly gave them a new identity on every
+  // incoming message, which invalidated the memoized graph layout.
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
   const getLogTree = useCallback(
     (treeId: string) => {
-      return (
-        sessions[activeProtocol].treesMap.get(treeId) ||
-        sessions[activeProtocol].liveTreesMap?.get(treeId)
-      );
+      const current = sessionsRef.current[activeProtocol];
+      return current.treesMap.get(treeId) || current.liveTreesMap?.get(treeId);
     },
-    [activeProtocol, sessions],
+    [activeProtocol],
   );
 
   // Multi-Protocol Continuous Live Bridge Listener

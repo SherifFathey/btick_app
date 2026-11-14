@@ -35,7 +35,10 @@ import {
 import { BTNodeComponent } from "./BTNodeComponent";
 import { BTMonitorEdge } from "./BTMonitorEdge";
 import { DelayInputControl } from "./DelayInputControl";
-import { generateGraphElements } from "../utils/dagreLayout";
+import {
+  generateGraphElements,
+  getEdgeStatusStyle,
+} from "../utils/dagreLayout";
 import treeStructureIcon from "../../assets/tree-structure.png";
 import { useResponsiveLayout } from "../../shared/hooks/useResponsiveLayout";
 import {
@@ -183,6 +186,148 @@ export const calculateAdaptiveFitOptions = (
   };
 };
 
+// Returns a function with a stable identity that always calls the latest
+// `fn` (or undefined when `fn` is undefined). Callbacks end up in the data of
+// every graph node, so a new identity per parent render would invalidate the
+// layout memo and re-render all nodes.
+function useStableCallback<T extends (...args: any[]) => any>(
+  fn: T | undefined,
+): T | undefined {
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+  const stable = useCallback(
+    (...args: Parameters<T>) => fnRef.current?.(...args),
+    [],
+  ) as unknown as T;
+  return fn ? stable : undefined;
+}
+
+// Everything the layout depends on: the tree structure and the inputs of
+// calculateNodeHeight(). Live status and port values are deliberately not
+// part of it, so status updates patch node data instead of re-running the
+// layout over the whole tree.
+const getLayoutKey = (tree: BTTreeModel | null): string => {
+  if (!tree || !tree.nodes) return "";
+  const parts: string[] = [tree.tree_id, tree.root_node_id || ""];
+  for (const n of tree.nodes) {
+    const attrCount =
+      (n.attributes ? Object.keys(n.attributes).length : 0) +
+      (n.ports ? Object.keys(n.ports).length : 0);
+    parts.push(
+      `${n.id}<${n.parent_id || ""}>${(n.children_ids || []).join(",")}#${attrCount}#${
+        n.last_duration !== undefined && n.last_duration > 0 ? 1 : 0
+      }`,
+    );
+  }
+  return parts.join("|");
+};
+
+const EMPTY_BLACKBOARD: Record<string, unknown> = Object.freeze({}) as Record<
+  string,
+  unknown
+>;
+
+// Blackboard keys a node can display ("{key}" port mappings).
+const getBlackboardKeys = (node: BTNodeModel): string[] => {
+  const keys = new Set<string>();
+  const addKey = (value: unknown) => {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      keys.add(trimmed.slice(1, -1).trim());
+    }
+  };
+  Object.values(node.ports || {}).forEach(addKey);
+  (node.port_details || []).forEach((pd) => addKey(pd.value));
+  return Array.from(keys);
+};
+
+interface LiveNodeData {
+  live: BTNodeModel;
+  nodeData: BTNodeModel;
+  blackboard: Record<string, unknown>;
+}
+
+// Live per-node data for the graph: the current node model and only the
+// blackboard entries the node displays. Objects are reused while unchanged so
+// that memoized node components skip re-rendering.
+const getLiveNodeData = (
+  id: string,
+  liveNodes: Map<string, BTNodeModel>,
+  blackboard: Record<string, unknown> | undefined,
+  cache: Map<string, LiveNodeData>,
+): LiveNodeData | undefined => {
+  const live = liveNodes.get(id);
+  if (!live) return undefined;
+  const cached = cache.get(id);
+  let picked: Record<string, unknown> = EMPTY_BLACKBOARD;
+  const keys = getBlackboardKeys(live);
+  if (blackboard && keys.length > 0) {
+    const candidate: Record<string, unknown> = {};
+    let any = false;
+    for (const k of keys) {
+      if (Object.prototype.hasOwnProperty.call(blackboard, k)) {
+        candidate[k] = blackboard[k];
+        any = true;
+      }
+    }
+    if (any) {
+      const previous = cached?.blackboard;
+      const same =
+        previous &&
+        Object.keys(previous).length === Object.keys(candidate).length &&
+        Object.keys(candidate).every(
+          (k) =>
+            Object.prototype.hasOwnProperty.call(previous, k) &&
+            (previous[k] === candidate[k] ||
+              JSON.stringify(previous[k]) === JSON.stringify(candidate[k])),
+        );
+      picked = same ? previous! : candidate;
+    }
+  }
+  if (cached && cached.live === live && cached.blackboard === picked) {
+    return cached;
+  }
+  const entry: LiveNodeData = {
+    live,
+    nodeData:
+      cached && cached.live === live
+        ? cached.nodeData
+        : live.status
+          ? live
+          : { ...live, status: "IDLE" },
+    blackboard: picked,
+  };
+  cache.set(id, entry);
+  return entry;
+};
+
+// Restyles edges from the live status of their target nodes, reusing edge
+// objects whose style did not change.
+const applyLiveEdgeStyles = (
+  edges: Edge[],
+  liveNodes: Map<string, BTNodeModel>,
+): Edge[] => {
+  let changed = false;
+  const next = edges.map((edge) => {
+    const { animated, style } = getEdgeStatusStyle(liveNodes.get(edge.target));
+    const current = (edge.style || {}) as {
+      stroke?: string;
+      strokeWidth?: number;
+    };
+    if (
+      Boolean(edge.animated) === animated &&
+      current.stroke === style.stroke &&
+      current.strokeWidth === style.strokeWidth
+    ) {
+      return edge;
+    }
+    changed = true;
+    return { ...edge, animated, style: { ...edge.style, ...style } };
+  });
+  return changed ? next : edges;
+};
+
 const DEFAULT_FIT_VIEW_OPTIONS = {
   padding: 0.2,
   minZoom: 0.05,
@@ -249,7 +394,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   onOrientationChange,
   activeProtocol = "btick",
   isReplaying = false,
-  onToggleBreakpoint,
+  onToggleBreakpoint: onToggleBreakpointProp,
   onSetBreakpointOnce,
   onInjectFault,
   onSetFaultOnce,
@@ -266,21 +411,29 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   viewport,
   onViewportChange,
   initialNodePositions,
-  onNodePositionsChange,
+  onNodePositionsChange: onNodePositionsChangeProp,
   initialCollapsedNodeIds,
-  onCollapsedNodeIdsChange,
+  onCollapsedNodeIdsChange: onCollapsedNodeIdsChangeProp,
   pathMode = "orthogonal",
   onPathModeChange,
   showGrid = true,
   autoCenter: propAutoCenter,
   onAutoCenterChange,
-  onSetNodePort,
+  onSetNodePort: onSetNodePortProp,
 }) => {
   const isNav2 = activeProtocol === "nav2";
   const isReadOnlyDebug = isNav2 || isReplaying;
   const { isMobile, isTablet } = useResponsiveLayout();
   const { fitView, setCenter, setViewport, getNodes } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
+  // Callers commonly pass inline arrows; keep identities stable (see
+  // useStableCallback).
+  const onToggleBreakpoint = useStableCallback(onToggleBreakpointProp);
+  const onNodePositionsChange = useStableCallback(onNodePositionsChangeProp);
+  const onCollapsedNodeIdsChange = useStableCallback(
+    onCollapsedNodeIdsChangeProp,
+  );
+  const onSetNodePort = useStableCallback(onSetNodePortProp);
 
   const [internalOrientation, setInternalOrientation] =
     useState<TreeOrientation>("vertical");
@@ -477,16 +630,28 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       next.delete(nodeId);
       return next;
     });
+    reportedHeightsRef.current.delete(nodeId);
   }, []);
 
+  // Nodes report their rendered height on mount and on every resize. Each
+  // updateNodeInternals() call is a separate React Flow store update that
+  // re-runs the selectors of all nodes and edges, so ignore reports that do
+  // not change the height and flush the rest as one batch.
+  const reportedHeightsRef = useRef<Map<string, number>>(new Map());
+  const pendingInternalsRef = useRef<Set<string>>(new Set());
   const handleNodeResize = useCallback(
     (nodeId: string, height: number) => {
-      updateNodeInternals(nodeId);
+      if (reportedHeightsRef.current.get(nodeId) === height) return;
+      reportedHeightsRef.current.set(nodeId, height);
+      pendingInternalsRef.current.add(nodeId);
       pendingHeightsRef.current.set(nodeId, height);
 
       if (batchTimeoutRef.current === null) {
         batchTimeoutRef.current = setTimeout(() => {
           batchTimeoutRef.current = null;
+          const resizedIds = Array.from(pendingInternalsRef.current);
+          pendingInternalsRef.current.clear();
+          if (resizedIds.length > 0) updateNodeInternals(resizedIds);
           setMeasuredNodeHeights((previous) => {
             let hasChanges = false;
             const next = new Map(previous);
@@ -514,6 +679,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   }, []);
 
   useEffect(() => {
+    reportedHeightsRef.current.clear();
     setMeasuredNodeHeights(new Map());
   }, [tree?.tree_id, activeProtocol]);
 
@@ -555,11 +721,53 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     [pathMode],
   );
 
+  // The layout only follows structural changes (see getLayoutKey); live
+  // status, port values and the blackboard are patched into the existing
+  // React Flow nodes by the live-data effect below. Re-running the layout
+  // and replacing all nodes on every status transition made the monitor
+  // unusable with large trees.
+  const layoutKey = useMemo(() => getLayoutKey(tree), [tree]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const layoutTree = useMemo(() => tree, [layoutKey]);
+  const liveNodeMap = useMemo(
+    () => new Map((tree?.nodes || []).map((node) => [node.id, node])),
+    [tree],
+  );
+  const liveBlackboard = tree?.blackboard;
+  const liveDataCacheRef = useRef<Map<string, LiveNodeData>>(new Map());
+  const liveDataRef = useRef({ liveNodeMap, liveBlackboard });
+  liveDataRef.current = { liveNodeMap, liveBlackboard };
+  // Overlay the current live data onto a node built from the layout tree.
+  const withLiveData = useCallback((node: Node): Node => {
+    const { liveNodeMap: liveNodes, liveBlackboard: bb } = liveDataRef.current;
+    const live = getLiveNodeData(
+      node.id,
+      liveNodes,
+      bb,
+      liveDataCacheRef.current,
+    );
+    if (
+      !live ||
+      (node.data.nodeData === live.nodeData &&
+        node.data.blackboard === live.blackboard)
+    ) {
+      return node;
+    }
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        nodeData: live.nodeData,
+        blackboard: live.blackboard,
+      },
+    };
+  }, []);
+
   // Compute graph elements using Dagre
   const stableGraph = useMemo(
     () =>
       generateGraphElements(
-        tree,
+        layoutTree,
         new Set(),
         activeOrientation,
         isReadOnlyDebug ? undefined : onToggleBreakpoint,
@@ -574,7 +782,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         handleToggleCardExpand,
       ),
     [
-      tree,
+      layoutTree,
       activeOrientation,
       isReadOnlyDebug,
       onToggleBreakpoint,
@@ -596,7 +804,9 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   }>(() => {
     const graph = stableGraph;
     const hiddenNodes = new Set<string>();
-    const nodeMap = new Map(tree?.nodes.map((node) => [node.id, node]) || []);
+    const nodeMap = new Map(
+      layoutTree?.nodes.map((node) => [node.id, node]) || [],
+    );
     const hideDescendants = (nodeId: string) => {
       nodeMap.get(nodeId)?.children_ids?.forEach((childId) => {
         hiddenNodes.add(childId);
@@ -629,7 +839,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       })),
     };
   }, [
-    tree,
+    layoutTree,
     stableGraph,
     expandedNodes,
     expandedCardNodeIds,
@@ -693,9 +903,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
                 : currentPositions.get(pendingNode.id) || pendingNode.position,
           }));
         });
-        pendingNodes.forEach((pendingNode) =>
-          updateNodeInternals(pendingNode.id),
-        );
+        updateNodeInternals(pendingNodes.map((pendingNode) => pendingNode.id));
       }
     },
     [onNodePositionsChange, setNodes, updateNodeInternals],
@@ -752,22 +960,23 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
         handleToggleCardExpand,
       );
 
-    const nodesWithCallbacks: Node[] = newNodes.map((node: Node) => ({
-      ...node,
-      selected: node.id === selectedNodeId,
-      data: {
-        ...node.data,
-        blackboard: tree?.blackboard || {},
-        orientation: activeOrientation,
-        onToggleCollapse: handleToggleCollapse,
-        onNodeContextMenu: handleNodeContextMenu,
-        onSetNodePort,
-        isReadOnly: isReadOnlyDebug,
-        onResetLayout: handleResetLayout,
-        isCardExpanded: expandedCardNodeIds.has(node.id),
-        onToggleCardExpand: handleToggleCardExpand,
-      },
-    }));
+    const nodesWithCallbacks: Node[] = newNodes.map((node: Node) =>
+      withLiveData({
+        ...node,
+        selected: node.id === selectedNodeId,
+        data: {
+          ...node.data,
+          orientation: activeOrientation,
+          onToggleCollapse: handleToggleCollapse,
+          onNodeContextMenu: handleNodeContextMenu,
+          onSetNodePort,
+          isReadOnly: isReadOnlyDebug,
+          onResetLayout: handleResetLayout,
+          isCardExpanded: expandedCardNodeIds.has(node.id),
+          onToggleCardExpand: handleToggleCardExpand,
+        },
+      }),
+    );
 
     const edgesWithSelection = generatedEdges.map((edge) => ({
       ...edge,
@@ -776,7 +985,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 
     setNodes(nodesWithCallbacks);
     setEdges(withPathMode(edgesWithSelection));
-    newNodes.forEach((n: Node) => updateNodeInternals(n.id));
+    updateNodeInternals(newNodes.map((n: Node) => n.id));
     explicitFitRequestedRef.current = true;
     fitRequestedRef.current = true;
   }, [
@@ -933,13 +1142,12 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
       const customPos = !isOrientationChanged
         ? userPositionsRef.current.get(node.id)
         : undefined;
-      return {
+      return withLiveData({
         ...node,
         position: customPos ? customPos : node.position,
         selected: node.id === selectedNodeId,
         data: {
           ...node.data,
-          blackboard: tree?.blackboard || {},
           orientation: activeOrientation,
           isLocked,
           onToggleCollapse: handleToggleCollapse,
@@ -950,13 +1158,16 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
           isCardExpanded: expandedCardNodeIds.has(node.id),
           onToggleCardExpand: handleToggleCardExpand,
         },
-      };
+      });
     });
 
-    const edgesWithSelection = initialEdges.map((edge) => ({
-      ...edge,
-      selected: edge.id === selectedEdgeId,
-    }));
+    const edgesWithSelection = applyLiveEdgeStyles(
+      initialEdges.map((edge) => ({
+        ...edge,
+        selected: edge.id === selectedEdgeId,
+      })),
+      liveDataRef.current.liveNodeMap,
+    );
 
     if (isDraggingNodeRef.current) {
       pendingGraphNodesRef.current = nodesWithCallbacks;
@@ -966,9 +1177,10 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
 
     setNodes(nodesWithCallbacks);
     setEdges(withPathMode(edgesWithSelection));
-    initialNodes.forEach((n: Node) => updateNodeInternals(n.id));
+    // One batched call: per-node calls are one store update each.
+    updateNodeInternals(initialNodes.map((n: Node) => n.id));
 
-    const currentTreeId = tree?.tree_id || null;
+    const currentTreeId = layoutTree?.tree_id || null;
     const isTreeChanged =
       currentTreeId !== null && currentTreeId !== lastLoadedTreeIdRef.current;
     if (isTreeChanged) {
@@ -979,7 +1191,7 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
   }, [
     initialNodes,
     initialEdges,
-    tree,
+    layoutTree,
     activeOrientation,
     activeProtocol,
     isReadOnlyDebug,
@@ -996,7 +1208,28 @@ export const BTGraphContent: React.FC<BTGraphProps> = ({
     handleToggleCollapse,
     expandedCardNodeIds,
     handleToggleCardExpand,
+    withLiveData,
   ]);
+
+  // Live status, port values and blackboard: patch only the nodes and edges
+  // whose data changed, keeping every other object (and thus the memoized
+  // node components) untouched. No layout, no updateNodeInternals.
+  useEffect(() => {
+    setNodes((currentNodes) => {
+      let changed = false;
+      const nextNodes = currentNodes.map((node) => {
+        const next = withLiveData(node);
+        if (next !== node) changed = true;
+        return next;
+      });
+      return changed ? nextNodes : currentNodes;
+    });
+    setEdges((currentEdges) => applyLiveEdgeStyles(currentEdges, liveNodeMap));
+    if (pendingGraphNodesRef.current) {
+      pendingGraphNodesRef.current =
+        pendingGraphNodesRef.current.map(withLiveData);
+    }
+  }, [liveNodeMap, liveBlackboard, withLiveData, setNodes, setEdges]);
 
   const nodeGeometryKey = useMemo(
     () =>
